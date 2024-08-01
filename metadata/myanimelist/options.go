@@ -13,16 +13,16 @@ type Options struct {
 	// NSFW if NSFW mangas should be included in the searches.
 	NSFW bool
 
-	// HTTPClient is a http client used for Anilist API.
+	// HTTPClient is a http client used for MyAnimeList API.
 	HTTPClient *http.Client
 
-	// LogWriter used for logs progress.
+	// Logger used for logs progress.
 	//
 	// If Logger is nil, a new one will be created.
 	Logger *logger.Logger
 }
 
-// DefaultOptions constructs default AnilistOptions.
+// DefaultOptions constructs default MyAnimeList Options.
 //
 // Note: the ClientID still needs to be passed separately.
 func DefaultOptions() Options {

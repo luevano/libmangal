@@ -11,11 +11,13 @@ type Options struct {
 	// HTTPClient is a http client used for Anilist API.
 	HTTPClient *http.Client
 
-	// LogWriter used for logs progress.
+	// Logger used for logs progress.
+	//
+	// If Logger is nil, a new one will be created.
 	Logger *logger.Logger
 }
 
-// DefaultOptions constructs default AnilistOptions.
+// DefaultOptions constructs default Anilist Options.
 func DefaultOptions() Options {
 	return Options{
 		HTTPClient: &http.Client{},
