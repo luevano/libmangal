@@ -41,9 +41,9 @@ func sendRequest[Data any](
 	}
 	defer resp.Body.Close()
 
-	// https://anilist.gitbook.io/anilist-apiv2-docs/overview/rate-limiting
+	// https://anilist.gitbook.io/anilist-apiv2-docs/docs/guide/rate-limiting
 	if resp.StatusCode == http.StatusTooManyRequests {
-		retryAfter := resp.Header.Get("X-RateLimit-Remaining")
+		retryAfter := resp.Header.Get("Retry-After")
 		if retryAfter == "" {
 			// 90 seconds
 			retryAfter = "90"
