@@ -3,7 +3,7 @@ package myanimelist
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -101,7 +101,7 @@ func (p *MyAnimeList) request(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf(resp.Status)
+		return errors.New(resp.Status)
 	}
 	return json.NewDecoder(resp.Body).Decode(&res)
 }

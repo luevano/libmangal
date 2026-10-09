@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -66,7 +65,7 @@ func sendRequest[Data any](
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return data, fmt.Errorf(resp.Status)
+		return data, errors.New(resp.Status)
 	}
 
 	var res apiResponse[Data]
