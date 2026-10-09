@@ -1,6 +1,6 @@
 module github.com/luevano/libmangal
 
-go 1.22
+go 1.27.0
 
 require (
 	github.com/pdfcpu/pdfcpu v0.8.0
