@@ -19,6 +19,9 @@ func (c *Client) DownloadChapter(
 	chapter mangadata.Chapter,
 	options DownloadOptions,
 ) (*metadata.DownloadedChapter, error) {
+	if reason := chapter.Info().Unavailable; reason != "" {
+		return nil, fmt.Errorf("unavailable: %s", reason)
+	}
 	c.logger.Log("downloading chapter %q as %s", chapter, options.Format)
 
 	manga := chapter.Volume().Manga()

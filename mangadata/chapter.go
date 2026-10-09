@@ -28,6 +28,12 @@ type ChapterInfo struct {
 	// If not an official publication, most of the chapters will belong
 	// to a scanlation group.
 	ScanlationGroup string `json:"scanlation_group"`
+
+	// Unavailable is the reason the chapter can't be downloaded (e.g. "0 pages", "external"),
+	// empty if it can.
+	//
+	// Providers can still list unavailable chapters so they're shown, but they won't be downloaded.
+	Unavailable string `json:"unavailable,omitempty"`
 }
 
 // Chapter is what Volume consists of. Each chapter is about 24–40 pages.
