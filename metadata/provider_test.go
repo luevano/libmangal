@@ -102,3 +102,21 @@ func TestFindClosestKeepsBindingWhenMetadataExpires(t *testing.T) {
 		t.Errorf("searched by title %v, want only id lookups", fake.queries)
 	}
 }
+
+func TestFindClosestTrimsRunes(t *testing.T) {
+	fake := &fakeProvider{}
+	p := newTestProvider(t, fake)
+
+	if _, found, err := p.FindClosest(context.Background(), "ベルセルク", 3, 3); err != nil || found {
+		t.Fatalf("got found=%t err=%v", found, err)
+	}
+	want := []string{"ベルセルク", "ベル", "ベ"}
+	if len(fake.queries) != len(want) {
+		t.Fatalf("queries %q, want %q", fake.queries, want)
+	}
+	for i, q := range fake.queries {
+		if q != want[i] {
+			t.Errorf("query %d: got %q, want %q", i, q, want[i])
+		}
+	}
+}

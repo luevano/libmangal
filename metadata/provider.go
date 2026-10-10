@@ -315,22 +315,18 @@ func (p *ProviderWithCache) findClosest(ctx context.Context, title string, tries
 			return closest, true, nil
 		}
 
-		// try again with a different title
-		// remove `step` characters from the end of the title
-		// avoid removing the last character or going out of bounds
-		var newLen int
-
-		title = strings.TrimSpace(title)
-
-		if len(title) > step {
-			newLen = len(title) - step
-		} else if len(title) > 1 {
-			newLen = len(title) - 1
-		} else {
-			break
+		// try again without the last `step` characters (runes, titles are often not ascii),
+		// keeping at least one
+		runes := []rune(strings.TrimSpace(title))
+		switch {
+		case len(runes) > step:
+			runes = runes[:len(runes)-step]
+		case len(runes) > 1:
+			runes = runes[:len(runes)-1]
+		default:
+			return nil, false, nil
 		}
-
-		title = title[:newLen]
+		title = string(runes)
 	}
 	return nil, false, nil
 }
