@@ -122,7 +122,14 @@ func (p *MyAnimeList) Search(ctx context.Context, query string) ([]metadata.Meta
 		return nil, fmt.Errorf("search %q: %w", query, err)
 	}
 
-	mangas := res.Data.GetAsMetas()
+	var mangas []metadata.Metadata
+	for _, node := range res.Data {
+		// novels share the manga search
+		if node.Node == nil || node.Node.MediaType == "novel" || node.Node.MediaType == "light_novel" {
+			continue
+		}
+		mangas = append(mangas, node.Node)
+	}
 	p.logger.Log("found %d manga(s) on MyAnimeList", len(mangas))
 	return mangas, nil
 }

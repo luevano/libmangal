@@ -66,7 +66,7 @@ externalLinks {
 const querySearchByName = `
 query ($query: String) {
 	Page (page: 1, perPage: 30) {
-		media (search: $query, type: MANGA) {
+		media (search: $query, type: MANGA, format_not_in: [NOVEL]) {
 			` + queryCommon + `
 		}
 	}

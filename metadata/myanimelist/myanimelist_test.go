@@ -104,3 +104,16 @@ func TestSetMangaProgress(t *testing.T) {
 		})
 	}
 }
+
+func TestSearchSkipsNovels(t *testing.T) {
+	m := newTestMAL(t, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[{"node":{"id":1,"title":"Solo Leveling","media_type":"light_novel"}},{"node":{"id":2,"title":"Solo Leveling","media_type":"manhwa"}}]}`))
+	})
+	metas, err := m.Search(context.Background(), "solo leveling")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(metas) != 1 || metas[0].ID().Value() != 2 {
+		t.Errorf("got %v, want only the manhwa", metas)
+	}
+}
