@@ -95,7 +95,6 @@ func (c *Client) saveCBZ(
 	c.logger.Log("saving %d pages as CBZ", len(pages))
 
 	zipWriter := zip.NewWriter(out)
-	defer zipWriter.Close()
 
 	for i, page := range pages {
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
@@ -109,7 +108,7 @@ func (c *Client) saveCBZ(
 
 		_, err = writer.Write(page.Image())
 		if err != nil {
-			return "", nil
+			return "", err
 		}
 	}
 
@@ -136,6 +135,10 @@ func (c *Client) saveCBZ(
 		}
 	}
 
+	// closing writes the central directory
+	if err := zipWriter.Close(); err != nil {
+		return "", err
+	}
 	return ciXmlStatus, nil
 }
 
@@ -146,7 +149,6 @@ func (c *Client) saveTAR(
 	c.logger.Log("saving %d pages as TAR", len(pages))
 
 	tarWriter := tar.NewWriter(out)
-	defer tarWriter.Close()
 
 	for i, page := range pages {
 		image := page.Image()
@@ -166,7 +168,7 @@ func (c *Client) saveTAR(
 		}
 	}
 
-	return nil
+	return tarWriter.Close()
 }
 
 func (c *Client) saveTARGZ(
@@ -176,9 +178,10 @@ func (c *Client) saveTARGZ(
 	c.logger.Log("bundling TAR into GZIP")
 
 	gzipWriter := gzip.NewWriter(out)
-	defer gzipWriter.Close()
-
-	return c.saveTAR(pages, gzipWriter)
+	if err := c.saveTAR(pages, gzipWriter); err != nil {
+		return err
+	}
+	return gzipWriter.Close()
 }
 
 func (c *Client) saveZIP(
@@ -188,7 +191,6 @@ func (c *Client) saveZIP(
 	c.logger.Log("saving %d pages as ZIP", len(pages))
 
 	zipWriter := zip.NewWriter(out)
-	defer zipWriter.Close()
 
 	for i, page := range pages {
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
@@ -206,7 +208,7 @@ func (c *Client) saveZIP(
 		}
 	}
 
-	return nil
+	return zipWriter.Close()
 }
 
 // downloadMangaImage will download image related to manga.
