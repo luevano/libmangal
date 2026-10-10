@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/philippgille/gokv"
@@ -25,81 +26,51 @@ const (
 
 type store struct {
 	openStore func(bucketName string) (gokv.Store, error)
-	store     gokv.Store
 }
 
-func (s *store) open(bucketName string) error {
-	store, err := s.openStore(bucketName)
-	s.store = store
-	return err
-}
-
-func (s *store) Close() error {
-	if s.store == nil {
-		return nil
-	}
-	return s.store.Close()
-}
-
-func (s *store) getQueryIDs(query string) (ids []int, found bool, err error) {
-	err = s.open(CacheBucketNameQueryToIDs)
+// get opens the bucket for a single operation, so concurrent calls don't share a handle
+// and file-backed stores aren't held open between calls.
+func (s store) get(bucketName, key string, v any) (found bool, err error) {
+	st, err := s.openStore(bucketName)
 	if err != nil {
-		return
+		return false, err
 	}
-	defer s.Close()
+	defer func() { err = errors.Join(err, st.Close()) }()
+	return st.Get(key, v)
+}
 
-	found, err = s.store.Get(query, &ids)
+func (s store) set(bucketName, key string, v any) (err error) {
+	st, err := s.openStore(bucketName)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, st.Close()) }()
+	return st.Set(key, v)
+}
+
+func (s store) getQueryIDs(query string) (ids []int, found bool, err error) {
+	found, err = s.get(CacheBucketNameQueryToIDs, query, &ids)
 	return
 }
 
-func (s *store) setQueryIDs(query string, ids []int) (err error) {
-	err = s.open(CacheBucketNameQueryToIDs)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	return s.store.Set(query, ids)
+func (s store) setQueryIDs(query string, ids []int) error {
+	return s.set(CacheBucketNameQueryToIDs, query, ids)
 }
 
-func (s *store) getTitleID(title string) (id int, found bool, err error) {
-	err = s.open(CacheBucketNameTitleToID)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	found, err = s.store.Get(title, &id)
+func (s store) getTitleID(title string) (id int, found bool, err error) {
+	found, err = s.get(CacheBucketNameTitleToID, title, &id)
 	return
 }
 
-func (s *store) setTitleID(title string, id int) (err error) {
-	err = s.open(CacheBucketNameTitleToID)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	return s.store.Set(title, id)
+func (s store) setTitleID(title string, id int) error {
+	return s.set(CacheBucketNameTitleToID, title, id)
 }
 
-func (s *store) getMeta(id int) (manga Metadata, found bool, err error) {
-	err = s.open(CacheBucketNameIDToManga)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	found, err = s.store.Get(strconv.Itoa(id), &manga)
+func (s store) getMeta(id int) (manga Metadata, found bool, err error) {
+	found, err = s.get(CacheBucketNameIDToManga, strconv.Itoa(id), &manga)
 	return
 }
 
-func (s *store) setMeta(id int, manga Metadata) (err error) {
-	err = s.open(CacheBucketNameIDToManga)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	return s.store.Set(strconv.Itoa(id), &manga)
+func (s store) setMeta(id int, manga Metadata) error {
+	return s.set(CacheBucketNameIDToManga, strconv.Itoa(id), &manga)
 }
