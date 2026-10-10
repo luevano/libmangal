@@ -8,7 +8,7 @@ type ReadStatus struct {
 	Score           int      `json:"score,omitempty" jsonschema:"description=0-10"`
 	NumVolumesRead  int      `json:"num_volumes_read,omitempty" jsonschema:"description=0 or the number of read volumes."`
 	NumChaptersRead int      `json:"num_chapters_read,omitempty" jsonschema:"description=0 or the number of read chapters."`
-	IsRereading     bool     `json:"is_rereading,omitempty" jsonschema:"If authorized user reads an manga again after completion, this field value is true.\nIn this case, MyAnimeList treats the manga as 'reading' in the user's manga list."`
+	IsRereading     bool     `json:"is_rereading,omitempty" jsonschema:"description=If authorized user reads an manga again after completion, this field value is true.\nIn this case, MyAnimeList treats the manga as 'reading' in the user's manga list."`
 	StartDate       string   `json:"start_date,omitempty"`
 	FinishDate      string   `json:"finish_date,omitempty"`
 	Priority        int      `json:"priority,omitempty"`

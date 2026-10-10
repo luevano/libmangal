@@ -327,7 +327,7 @@ func (c *Client) downloadChapter(
 }
 
 // DownloadPagesInBatch downloads multiple pages in batch
-// by calling DownloadPage for each page in a separate goroutines.
+// by calling DownloadPage for each page, ClientOptions.ConcurrentPages at a time.
 //
 // If any of the pages fails to download it will stop downloading other pages
 // and return error immediately.

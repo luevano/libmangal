@@ -25,7 +25,7 @@ type User struct {
 	Birthday     string `json:"birthday"`
 	Location     string `json:"location"`
 	JoinedAt     string `json:"joined_at"`
-	Timezone     string `json:"time_zone" jsonschema:"For example 'America/Los_Angeles'"`
+	Timezone     string `json:"time_zone" jsonschema:"description=For example 'America/Los_Angeles'"`
 	IsSupporter  bool   `json:"is_supporter"`
 }
 

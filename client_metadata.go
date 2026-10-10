@@ -42,7 +42,8 @@ func (c *Client) GetMetadataProvider(id metadata.IDSource) (*metadata.ProviderWi
 	return p, nil
 }
 
-// SearchMetadata will search for metadata on the available metadata providers.
+// SearchMetadata will search for metadata on the available metadata providers,
+// in the order they were set, returning the first found.
 //
 // Tries to search manga metadata in the following order:
 //
@@ -140,8 +141,8 @@ func (c *Client) SearchByMangaContext(
 //
 // E.g. `xdg-open` for Linux.
 //
-// It will also sync read chapter with your Anilist profile
-// if it's configured.
+// It will also set the reading progress on Anilist and MyAnimeList
+// if enabled in the ReadOptions.
 //
 // Note, that underlying filesystem must be mapped with OsFs
 // in order for os to open it.

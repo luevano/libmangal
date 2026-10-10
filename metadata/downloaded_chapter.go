@@ -14,7 +14,7 @@ type DownloadedChapter struct {
 	// Filename as written to system.
 	Filename string `json:"filename"`
 
-	// Directory of the chapter (absolute).
+	// Directory of the chapter, under DownloadOptions.Directory.
 	Directory string `json:"directory"`
 
 	// ChapterStatus is the status of the downloaded chapter.
@@ -26,10 +26,10 @@ type DownloadedChapter struct {
 	// ComicInfoXMLStatus is the status of the downloaded ComicInfo.xml.
 	ComicInfoXMLStatus DownloadStatus `json:"comicinfo_xml_status"`
 
-	// ChapterStatus is the status of the downloaded chapter
+	// CoverStatus is the status of the downloaded cover image.
 	CoverStatus DownloadStatus `json:"cover_status"`
 
-	// ChapterStatus is the status of the downloaded chapter.
+	// BannerStatus is the status of the downloaded banner image.
 	BannerStatus DownloadStatus `json:"banner_status"`
 }
 

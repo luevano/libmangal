@@ -14,7 +14,8 @@ type ProviderWithCacheOptions struct {
 
 	// CacheStore returns a gokv.Store implementation for use as a cache storage.
 	//
-	// It will use the given provider's ID as the dbName.
+	// It will use the given provider's ID as the dbName. The store is opened for
+	// each operation and closed right after.
 	CacheStore func(dbName, bucketName string) (gokv.Store, error)
 }
 

@@ -58,7 +58,6 @@ type ChapterWithComicInfoXML interface {
 	// ComicInfoXML will be used to write ComicInfo.xml file.
 	//
 	// Implementation should not make any external requests.
-	// If found is false then mangal will try to search on Anilist for the
-	// relevant manga.
+	// If found is false then the one generated from the metadata is used.
 	ComicInfoXML() (comicInfoXML metadata.ComicInfoXML, found bool, err error)
 }

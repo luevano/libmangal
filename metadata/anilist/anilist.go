@@ -79,7 +79,7 @@ func (p *Anilist) Logger() *logger.Logger {
 
 // SearchByID for metadata with the given id.
 //
-// Implementation should only handle the request and and marshaling.
+// Implementation should only handle the request and marshaling.
 func (p *Anilist) SearchByID(ctx context.Context, id int) (metadata.Metadata, bool, error) {
 	body := apiRequestBody{
 		Query: querySearchByID,
@@ -105,7 +105,7 @@ func (p *Anilist) SearchByID(ctx context.Context, id int) (metadata.Metadata, bo
 
 // Search for metadata with the given query.
 //
-// Implementation should only handle the request and and marshaling.
+// Implementation should only handle the request and marshaling.
 func (p *Anilist) Search(ctx context.Context, query string) ([]metadata.Metadata, error) {
 	body := apiRequestBody{
 		Query: querySearchByName,

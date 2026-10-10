@@ -35,8 +35,8 @@ type ProviderInfo struct {
 }
 
 // Validate checks if the ProviderInfo is valid.
-// This means that ProviderInfo.Name is non-empty
-// and ProviderInfo.Version is a valid semver.
+// This means that ID and Name are non-empty
+// and Version is a valid semver.
 func (p ProviderInfo) Validate() error {
 	if p.ID == "" {
 		return errors.New("empty id")

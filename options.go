@@ -21,21 +21,22 @@ const (
 
 // ReadOptions configures the reader options.
 type ReadOptions struct {
-	// SaveHistory will save chapter to local history if ReadAfter is enabled.
+	// SaveHistory will save the chapter to the local history. Not implemented yet.
 	SaveHistory bool
 
-	// SaveAnilist will save Anilist reading history if logged in and ReadAfter is enabled.
+	// SaveAnilist will set the Anilist reading progress, needs to be logged in.
 	SaveAnilist bool
 
-	// SaveMyAnimeList will save MyAnimeList reading history if logged in and ReadAfter is enabled.
+	// SaveMyAnimeList will set the MyAnimeList reading progress, needs to be logged in.
 	SaveMyAnimeList bool
 }
 
 // DefaultReadOptions constructs default ReadOptions.
 func DefaultReadOptions() ReadOptions {
 	return ReadOptions{
-		SaveHistory: false,
-		SaveAnilist: false,
+		SaveHistory:     false,
+		SaveAnilist:     false,
+		SaveMyAnimeList: false,
 	}
 }
 
@@ -59,7 +60,7 @@ type DownloadOptions struct {
 	// will be created under it.
 	CreateVolumeDir bool
 
-	// Strict means that that if the metadata is invalid or if an error occurs during
+	// Strict means that if the metadata is invalid or if an error occurs during
 	// metadata files creation, the chapter will not be written to disk.
 	//
 	// Some metadata is potentially written to disk.

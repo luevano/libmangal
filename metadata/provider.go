@@ -49,7 +49,7 @@ type ProviderInfo struct {
 
 // Validate checks if the ProviderInfo is valid.
 //
-// This means that ID and ID are non-empty and
+// This means that ID, Code and Name are non-empty and
 // Version is a valid semver.
 func (p ProviderInfo) Validate() error {
 	if p.ID == "" {
@@ -91,12 +91,12 @@ type Provider interface {
 
 	// SearchByID for metadata with the given id.
 	//
-	// Implementation should only handle the request and and marshaling.
+	// Implementation should only handle the request and marshaling.
 	SearchByID(ctx context.Context, id int) (Metadata, bool, error)
 
 	// Search for metadata with the given query.
 	//
-	// Implementation should only handle the request and and marshaling.
+	// Implementation should only handle the request and marshaling.
 	Search(ctx context.Context, query string) ([]Metadata, error)
 
 	// SetMangaProgress sets the reading progress for a given manga metadata id.
@@ -187,7 +187,7 @@ func (p *ProviderWithCache) Logger() *logger.Logger {
 
 // SearchByID for metadata with the given id.
 //
-// Implementation should only handle the request and and marshaling.
+// Implementation should only handle the request and marshaling.
 func (p *ProviderWithCache) SearchByID(id int) (Metadata, bool, error) {
 	return p.SearchByIDContext(context.Background(), id)
 }
@@ -222,7 +222,7 @@ func (p *ProviderWithCache) SearchByIDContext(ctx context.Context, id int) (Meta
 //
 // Search for metadata with the given query.
 //
-// Implementation should only handle the request and and marshaling.
+// Implementation should only handle the request and marshaling.
 func (p *ProviderWithCache) Search(query string) ([]Metadata, error) {
 	return p.SearchContext(context.Background(), query)
 }

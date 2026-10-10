@@ -94,7 +94,7 @@ func (c *Client) SearchMangasContext(ctx context.Context, query string) ([]manga
 	return c.provider.SearchMangas(ctx, query)
 }
 
-// MangaVolumes gets chapters of the given manga.
+// MangaVolumes gets volumes of the given manga.
 func (c *Client) MangaVolumes(manga mangadata.Manga) ([]mangadata.Volume, error) {
 	return c.MangaVolumesContext(context.Background(), manga)
 }
@@ -104,7 +104,7 @@ func (c *Client) MangaVolumesContext(ctx context.Context, manga mangadata.Manga)
 	return c.provider.MangaVolumes(ctx, manga)
 }
 
-// VolumeChapters gets chapters of the given manga.
+// VolumeChapters gets chapters of the given volume.
 func (c *Client) VolumeChapters(volume mangadata.Volume) ([]mangadata.Chapter, error) {
 	return c.VolumeChaptersContext(context.Background(), volume)
 }

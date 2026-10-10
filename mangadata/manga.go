@@ -56,7 +56,6 @@ type MangaWithSeriesJSON interface {
 	// SeriesJSON will be used to write series.json file.
 	//
 	// Implementation should not make any external requests.
-	// If found is false then mangal will try to search on Anilist for the
-	// relevant manga.
+	// If found is false then the one generated from the metadata is used.
 	SeriesJSON() (seriesJSON metadata.SeriesJSON, found bool, err error)
 }

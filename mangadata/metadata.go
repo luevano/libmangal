@@ -57,7 +57,7 @@ func (m *Metadata) String() string {
 // Title is the English title of the manga.
 // Must be non-empty.
 //
-// If English is not available, then in in order of availability:
+// If English is not available, then in order of availability:
 // Romaji (the romanized title) or Native (usually Kanji).
 func (m *Metadata) Title() string {
 	t := strings.TrimSpace(m.EnglishTitle)
@@ -128,7 +128,7 @@ func (m *Metadata) Characters() []string {
 }
 
 // Authors (or Writers) is the list of authors, in order of relevance.
-// Must contain at least one artist.
+// Must contain at least one author.
 func (m *Metadata) Authors() []string {
 	return m.AuthorList
 }

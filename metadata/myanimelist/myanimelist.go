@@ -86,7 +86,7 @@ func (p *MyAnimeList) Logger() *logger.Logger {
 }
 
 // SearchByID for metadata with the given id.
-// Implementation should only handle the request and and marshaling.
+// Implementation should only handle the request and marshaling.
 func (p *MyAnimeList) SearchByID(ctx context.Context, id int) (metadata.Metadata, bool, error) {
 	params := p.commonMangaReqParams()
 	params.Set("manga_id", strconv.Itoa(id))
@@ -109,7 +109,7 @@ func (p *MyAnimeList) SearchByID(ctx context.Context, id int) (metadata.Metadata
 
 // Search for metadata with the given query.
 //
-// Implementation should only handle the request and and marshaling.
+// Implementation should only handle the request and marshaling.
 func (p *MyAnimeList) Search(ctx context.Context, query string) ([]metadata.Metadata, error) {
 	params := p.commonMangaReqParams()
 	params.Set("q", query)

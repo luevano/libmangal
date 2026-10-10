@@ -26,7 +26,7 @@ type User struct {
 		DisplayAdultContent bool   `json:"displayAdultContent" jsonschema:"description=Whether the user has enabled viewing of 18+ content."`
 		ProfileColor        string `json:"profileColor" jsonschema:"description=Profile highlight color (blue, purple, pink, orange, red, green, gray)."`
 		Timezone            string `json:"timezone" jsonschema:"description=The user's timezone offset (Auth user only)."`
-	} `json:"options" jsonschema:"The user's general options."`
+	} `json:"options" jsonschema:"description=The user's general options."`
 	SiteURL       string `json:"siteUrl" jsonschema:"description=The URL for the user page on the AniList website."`
 	CreatedAt     int    `json:"createdAt" jsonschema:"description=When the user's account was created. (Does not exist for accounts created before 2020)."`
 	UpdatedAt     int    `json:"updatedAt" jsonschema:"description=When the user's data was last updated."`
