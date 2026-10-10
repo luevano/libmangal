@@ -156,7 +156,11 @@ func (c *Client) ChapterDir(chapter mangadata.Chapter, options DownloadOptions) 
 func (c *Client) chapterDirs(chapter mangadata.Chapter, options DownloadOptions) (chapterDirs, error) {
 	dirs := chapterDirs{parent: options.Directory, meta: options.Directory}
 	if options.CreateProviderDir {
-		dirs.parent = filepath.Join(dirs.parent, c.ProviderName(c.Info()))
+		name, err := c.providerDirName(options)
+		if err != nil {
+			return dirs, err
+		}
+		dirs.parent = filepath.Join(dirs.parent, name)
 	}
 	dirs.chapter = dirs.parent
 
@@ -182,4 +186,35 @@ func (c *Client) chapterDirs(chapter mangadata.Chapter, options DownloadOptions)
 		dirs.chapter = filepath.Join(dirs.chapter, c.VolumeName(chapter.Volume()))
 	}
 	return dirs, nil
+}
+
+// providerDirName is the provider directory name, or the name it had before
+// (ProviderInfo.History) if only that directory exists and ReuseMangaDir is set.
+func (c *Client) providerDirName(options DownloadOptions) (string, error) {
+	info := c.Info()
+	name := c.ProviderName(info)
+	if !options.ReuseMangaDir || len(info.History) == 0 {
+		return name, nil
+	}
+	exists, err := afero.DirExists(c.options.FS, filepath.Join(options.Directory, name))
+	if err != nil || exists {
+		return name, err
+	}
+	for _, alias := range info.History {
+		old := info
+		old.ID, old.Name, old.Website, old.History = alias.ID, alias.Name, alias.Website, nil
+		if old.Name == "" {
+			old.Name = info.Name
+		}
+		oldName := c.ProviderName(old)
+		exists, err := afero.DirExists(c.options.FS, filepath.Join(options.Directory, oldName))
+		if err != nil {
+			return name, err
+		}
+		if exists {
+			c.logger.Log("reusing directory %q of the provider's old name for %q", oldName, info.Name)
+			return oldName, nil
+		}
+	}
+	return name, nil
 }

@@ -114,3 +114,27 @@ func TestReuseMangaDirByMetadataID(t *testing.T) {
 		t.Errorf("got %q", dir)
 	}
 }
+
+func TestReuseOldProviderDir(t *testing.T) {
+	options := DefaultDownloadOptions()
+	options.Directory = t.TempDir()
+	options.SearchMetadata = false
+	options.CreateProviderDir = true
+	chapter := newFakeChapter(validMeta(), 1)
+
+	old := ProviderInfo{ID: "mango-mangasee", Name: "MangaSee", Version: "0.1.0"}
+	if _, err := newNamedClient(t, old, "Manga").DownloadChapterContext(context.Background(), chapter, options); err != nil {
+		t.Fatal(err)
+	}
+
+	renamed := ProviderInfo{ID: "mango-mangasee", Name: "Weeb Central", Version: "0.1.0", History: []ProviderAlias{{ID: "mango-mangasee", Name: "MangaSee"}}}
+	dir, err := newNamedClient(t, renamed, "Manga").ChapterDir(chapter, options)
+	if err != nil || dir != filepath.Join(options.Directory, "MangaSee", "Manga") {
+		t.Errorf("got %q, %v, want the old provider directory", dir, err)
+	}
+
+	options.ReuseMangaDir = false
+	if dir, _ := newNamedClient(t, renamed, "Manga").ChapterDir(chapter, options); dir != filepath.Join(options.Directory, "Weeb Central", "Manga") {
+		t.Errorf("got %q without reusing", dir)
+	}
+}
