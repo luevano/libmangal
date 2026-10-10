@@ -1,8 +1,10 @@
 package metadata
 
-// Error is a general error for metadata operations.
-type Error string
+import "errors"
 
-func (e Error) Error() string {
-	return "metadata: " + string(e)
-}
+// Errors to check with errors.Is, the metadata providers' errors match them when it applies.
+var (
+	ErrNotFound     = errors.New("not found")
+	ErrRateLimited  = errors.New("rate limited")
+	ErrUnauthorized = errors.New("unauthorized")
+)

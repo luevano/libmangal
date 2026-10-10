@@ -17,12 +17,12 @@ var openFile = open.Run
 // SetMetadataProvider will add or update the given metadata Provider.
 func (c *Client) SetMetadataProvider(provider *metadata.ProviderWithCache) error {
 	if provider == nil {
-		return errors.New("Provider must be non-nil")
+		return errors.New("nil metadata provider")
 	}
 
 	id := provider.Info().Source
 	if id < 1 {
-		return errors.New(fmt.Sprintf("invalid metadata Provider IDSource %d (ID %q)", id, provider.Info().ID))
+		return fmt.Errorf("metadata provider %q: invalid source %d", provider.Info().ID, id)
 	}
 
 	provider.SetLogger(c.logger)
@@ -37,7 +37,7 @@ func (c *Client) SetMetadataProvider(provider *metadata.ProviderWithCache) error
 func (c *Client) GetMetadataProvider(id metadata.IDSource) (*metadata.ProviderWithCache, error) {
 	p, ok := c.meta[id]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("no metadata Provider found with IDSource %d", id))
+		return nil, fmt.Errorf("no metadata provider with source %d", id)
 	}
 	return p, nil
 }
@@ -58,7 +58,7 @@ func (c *Client) SearchMetadata(
 	c.logger.Log("searching metadata for manga %q on all available providers", manga)
 
 	if len(c.meta) == 0 {
-		return nil, errors.New("no metadata Providers available")
+		return nil, errors.New("no metadata providers")
 	}
 
 	// a failing provider shouldn't stop the others from being searched
@@ -144,7 +144,7 @@ func (c *Client) ReadChapter(
 	c.logger.Log("opening chapter %q from %s with the default app", chapter, path)
 
 	if err := openFile(path); err != nil {
-		return err
+		return fmt.Errorf("open %s: %w", path, err)
 	}
 
 	// TODO: save to local history (options.SaveHistory)

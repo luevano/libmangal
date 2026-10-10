@@ -3,6 +3,7 @@ package anilist
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/luevano/libmangal/metadata"
 )
@@ -28,7 +29,7 @@ func (p *Anilist) Login(ctx context.Context, token string) error {
 	if err != nil {
 		// remove token as it's possible it's not valid
 		p.token = ""
-		return Error(err.Error())
+		return fmt.Errorf("login: %w", err)
 	}
 	p.user = user
 
@@ -38,7 +39,7 @@ func (p *Anilist) Login(ctx context.Context, token string) error {
 // Logout de-authorizes the currently authorized user.
 func (p *Anilist) Logout() error {
 	if !p.Authenticated() {
-		return errors.New("no authenticated user to logout")
+		return fmt.Errorf("logout: anilist: %w", metadata.ErrUnauthorized)
 	}
 	p.user = nil
 	p.token = ""
@@ -52,10 +53,10 @@ func (p *Anilist) getAuthenticatedUser(ctx context.Context) (metadata.User, erro
 	}
 	data, err := sendRequest[userData](ctx, p, body)
 	if err != nil {
-		return nil, errors.New("getting authenticated user data: " + err.Error())
+		return nil, fmt.Errorf("get user: %w", err)
 	}
 	if data.Viewer == nil {
-		return nil, errors.New("received user data is nil")
+		return nil, errors.New("get user: anilist: no user in the response")
 	}
 	return data.Viewer, nil
 }

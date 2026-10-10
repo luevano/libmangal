@@ -2,6 +2,7 @@ package myanimelist
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -36,15 +37,17 @@ type MyAnimeList struct {
 
 	options Options
 	logger  *logger.Logger
+	// apiURL is only changed in tests
+	apiURL string
 }
 
 // NewMAL constructs new MyAnimeList client.
 func NewMAL(options Options) (*MyAnimeList, error) {
 	if options.ClientID == "" {
-		return nil, Error("invalid options: empty ClientID")
+		return nil, errors.New("mal: invalid options: empty ClientID")
 	}
 	if options.HTTPClient == nil {
-		return nil, Error("invalid options: nil HTTPClient")
+		return nil, errors.New("mal: invalid options: nil HTTPClient")
 	}
 
 	// ensure the used logger is not nil
@@ -55,6 +58,7 @@ func NewMAL(options Options) (*MyAnimeList, error) {
 	mal := &MyAnimeList{
 		options: options,
 		logger:  l,
+		apiURL:  apiURL,
 	}
 
 	return mal, nil
@@ -89,8 +93,11 @@ func (p *MyAnimeList) SearchByID(ctx context.Context, id int) (metadata.Metadata
 
 	var manga *Manga
 	err := p.request(ctx, http.MethodGet, "manga/"+strconv.Itoa(id), params, p.commonMangaReqHeaders(), nil, &manga)
+	if errors.Is(err, metadata.ErrNotFound) {
+		return nil, false, nil
+	}
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("get manga %d: %w", id, err)
 	}
 
 	if manga == nil {
@@ -112,7 +119,7 @@ func (p *MyAnimeList) Search(ctx context.Context, query string) ([]metadata.Meta
 	var res mangasResponse
 	err := p.request(ctx, http.MethodGet, "manga", params, p.commonMangaReqHeaders(), nil, &res)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("search %q: %w", query, err)
 	}
 
 	mangas := res.Data.GetAsMetas()
@@ -123,10 +130,10 @@ func (p *MyAnimeList) Search(ctx context.Context, query string) ([]metadata.Meta
 // SetMangaProgress sets the reading progress for a given manga metadata id.
 func (p *MyAnimeList) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
 	if id == 0 {
-		return Error("MyAnimeList ID not valid (0)")
+		return errors.New("set progress: mal: invalid manga id 0")
 	}
 	if !p.Authenticated() {
-		return Error("not authorized")
+		return fmt.Errorf("set progress of manga %d: mal: %w", id, metadata.ErrUnauthorized)
 	}
 
 	path := fmt.Sprintf("manga/%d/my_list_status", id)
@@ -142,7 +149,7 @@ func (p *MyAnimeList) SetMangaProgress(ctx context.Context, id, chapterNumber in
 	var readStatus *ReadStatus
 	err := p.request(ctx, http.MethodPatch, path, url.Values{}, headers, body, &readStatus)
 	if err != nil {
-		return err
+		return fmt.Errorf("set progress of manga %d: %w", id, err)
 	}
 
 	return nil

@@ -37,7 +37,7 @@ func NewClient(
 	providerInfo := loader.Info()
 
 	if err := providerInfo.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("provider %q: invalid info: %w", providerInfo.ID, err)
 	}
 
 	provider, err := loader.Load(ctx)

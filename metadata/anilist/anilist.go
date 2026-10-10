@@ -2,6 +2,8 @@ package anilist
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/metadata"
@@ -31,12 +33,14 @@ type Anilist struct {
 
 	options Options
 	logger  *logger.Logger
+	// apiURL is only changed in tests
+	apiURL string
 }
 
 // NewAnilist constructs new Anilist client.
 func NewAnilist(options Options) (*Anilist, error) {
 	if options.HTTPClient == nil {
-		return nil, Error("invalid options: nil HTTPClient")
+		return nil, errors.New("anilist: invalid options: nil HTTPClient")
 	}
 	// ensure the used logger is not nil
 	l := options.Logger
@@ -46,6 +50,7 @@ func NewAnilist(options Options) (*Anilist, error) {
 	anilist := &Anilist{
 		options: options,
 		logger:  l,
+		apiURL:  apiURL,
 	}
 
 	return anilist, nil
@@ -84,7 +89,7 @@ func (p *Anilist) SearchByID(ctx context.Context, id int) (metadata.Metadata, bo
 	}
 	data, err := sendRequest[byIDData](ctx, p, body)
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("get manga %d: %w", id, err)
 	}
 
 	manga := data.Media
@@ -107,7 +112,7 @@ func (p *Anilist) Search(ctx context.Context, query string) ([]metadata.Metadata
 	}
 	data, err := sendRequest[mangasData](ctx, p, body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("search %q: %w", query, err)
 	}
 
 	mangas := data.Page.Media.GetAsMetas()
@@ -118,10 +123,10 @@ func (p *Anilist) Search(ctx context.Context, query string) ([]metadata.Metadata
 // SetMangaProgress sets the reading progress for a given manga metadata id.
 func (p *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
 	if id == 0 {
-		return Error("Anilist ID not valid (0)")
+		return errors.New("set progress: anilist: invalid manga id 0")
 	}
 	if !p.Authenticated() {
-		return Error("not authorized")
+		return fmt.Errorf("set progress of manga %d: anilist: %w", id, metadata.ErrUnauthorized)
 	}
 
 	body := apiRequestBody{
@@ -133,7 +138,7 @@ func (p *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) e
 	}
 	_, err := sendRequest[setProgressData](ctx, p, body)
 	if err != nil {
-		return Error(err.Error())
+		return fmt.Errorf("set progress of manga %d: %w", id, err)
 	}
 
 	return nil

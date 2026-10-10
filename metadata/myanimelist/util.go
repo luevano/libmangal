@@ -3,7 +3,7 @@ package myanimelist
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -78,13 +78,16 @@ func (p *MyAnimeList) request(
 	body io.Reader,
 	res any,
 ) error {
-	u, _ := url.Parse(apiURL)
+	u, err := url.Parse(p.apiURL)
+	if err != nil {
+		return fmt.Errorf("mal: %w", err)
+	}
 	u = u.JoinPath(path)
 	u.RawQuery = params.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
 	if err != nil {
-		return err
+		return fmt.Errorf("mal: %s %s: %w", method, u.Path, err)
 	}
 
 	if p.Authenticated() {
@@ -96,14 +99,24 @@ func (p *MyAnimeList) request(
 
 	resp, err := p.options.HTTPClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("mal: %s %s: %w", method, u.Path, err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return errors.New(resp.Status)
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusTooManyRequests:
+		return &RateLimitError{Method: method, Path: u.Path, RetryAfter: retryAfter(resp.Header)}
+	default:
+		var er errorResponse
+		_ = json.NewDecoder(resp.Body).Decode(&er)
+		return &HTTPError{Method: method, Path: u.Path, StatusCode: resp.StatusCode, Message: er.String()}
 	}
-	return json.NewDecoder(resp.Body).Decode(&res)
+
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return fmt.Errorf("mal: %s %s: decode response: %w", method, u.Path, err)
+	}
+	return nil
 }
 
 // commonMangaReqParams is a convenience method to get the common manga req params.

@@ -96,28 +96,28 @@ func (id ID) Value() int {
 
 func (id ID) validate() error {
 	if id.Code == "" {
-		return errors.New("IDCode must be non-empty")
+		return errors.New("empty code")
 	}
 
 	switch id.Source {
 	case 0:
-		return errors.New("IDSource must be non-zero")
+		return errors.New("zero source")
 	case IDSourceProvider:
 		return nil
 	case IDSourceAnilist, IDSourceMyAnimeList, IDSourceKitsu, IDSourceMangaUpdates:
 		i, err := strconv.Atoi(id.Raw)
 		if err != nil {
-			return errors.New("ID must be an integer")
+			return fmt.Errorf("%s id %q isn't an integer", id.Code, id.Raw)
 		}
 		if i < 1 {
-			return errors.New("ID must be a non-zero positive integer")
+			return fmt.Errorf("%s id %d isn't positive", id.Code, i)
 		}
 	case IDSourceAnimePlanet:
 		if id.Raw == "" {
-			return errors.New("AnimePlanet ID must be non-empty")
+			return fmt.Errorf("empty %s id", id.Code)
 		}
 	default:
-		return errors.New("unexpected IDsource")
+		return fmt.Errorf("unknown source %d", id.Source)
 	}
 	return nil
 }
@@ -228,32 +228,34 @@ type Metadata interface {
 // At the very least checks that: Title, Description, Authors,
 // StartDate and Status are non-empty/non-zero.
 func Validate(m Metadata) error {
-	if m == nil {
-		return Error("Metadata is nil")
+	if err := validate(m); err != nil {
+		return fmt.Errorf("invalid metadata: %w", err)
 	}
+	return nil
+}
 
-	if m.String() == "" {
-		return Error("String representation must be non-empty")
-	}
-	if m.Title() == "" {
-		return Error("Title must be non-empty")
-	}
-	if len(m.Authors()) == 0 {
-		return Error("Authors must contain at least one author")
-	}
-	if m.StartDate() == (Date{}) {
-		return Error("StartDate must be non-zero")
-	}
-	if m.Status() == "" {
-		return Error("Status must be non-empty")
+func validate(m Metadata) error {
+	switch {
+	case m == nil:
+		return errors.New("nil metadata")
+	case m.String() == "":
+		return errors.New("empty String()")
+	case m.Title() == "":
+		return errors.New("empty title")
+	case len(m.Authors()) == 0:
+		return errors.New("no authors")
+	case m.StartDate() == (Date{}):
+		return errors.New("no start date")
+	case m.Status() == "":
+		return errors.New("empty status")
 	}
 
 	if err := m.ID().validate(); err != nil {
-		return Error(err.Error())
+		return fmt.Errorf("id: %w", err)
 	}
 	for _, id := range m.ExtraIDs() {
 		if err := id.validate(); err != nil {
-			return Error("one of the ExtraIDs is invalid: " + err.Error())
+			return fmt.Errorf("extra id: %w", err)
 		}
 	}
 	return nil

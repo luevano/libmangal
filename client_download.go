@@ -3,6 +3,7 @@ package libmangal
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -24,7 +25,7 @@ func (c *Client) DownloadChapter(
 		return nil, fmt.Errorf("invalid download options: %w", err)
 	}
 	if reason := chapter.Info().Unavailable; reason != "" {
-		return nil, fmt.Errorf("unavailable: %s", reason)
+		return nil, fmt.Errorf("%w: %s", ErrUnavailable, reason)
 	}
 	c.logger.Log("downloading chapter %q as %s", chapter, options.Format)
 
@@ -34,13 +35,13 @@ func (c *Client) DownloadChapter(
 	if options.SearchMetadata {
 		m, err := c.SearchMetadata(ctx, manga)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("search metadata: %w", err)
 		}
 		manga.SetMetadata(m)
 	}
 	// Even after a metadata search, check if it is valid (nil for example)
 	if err := metadata.Validate(manga.Metadata()); err != nil && options.Strict {
-		return nil, fmt.Errorf("no valid metadata for manga %q: %s", manga, err.Error())
+		return nil, fmt.Errorf("manga %q: %w", manga, err)
 	}
 
 	// a temp client is used to download everything
@@ -65,7 +66,7 @@ func (c *Client) DownloadChapter(
 		c.FS(), options.Directory,
 		tmpClient.FS(), options.Directory,
 	); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("move to %s: %w", options.Directory, err)
 	}
 
 	return downChap, nil
@@ -211,7 +212,7 @@ func (c *Client) writeMetadataFile(
 	data, err := content()
 	if err != nil {
 		if strict {
-			return "", err
+			return "", fmt.Errorf("%s: %w", filepath.Base(path), err)
 		}
 		c.logger.Log("writing %s: %s", filepath.Base(path), err)
 		return metadata.DownloadStatusFailed, nil
@@ -240,59 +241,44 @@ func (c *Client) downloadChapter(
 		return "", err
 	}
 
-	for _, page := range downloadedPages {
-		select {
-		case <-ctx.Done():
-			return "", ctx.Err()
-		default:
+	if options.ImageTransformer != nil {
+		for i, page := range downloadedPages {
+			if err := ctx.Err(); err != nil {
+				return "", err
+			}
+			image, err := options.ImageTransformer(page.Image())
+			if err != nil {
+				return "", fmt.Errorf("transform page %d: %w", i+1, err)
+			}
+			page.SetImage(image)
 		}
+	}
 
-		if options.ImageTransformer == nil {
-			break
-		}
-		image, err := options.ImageTransformer(page.Image())
-		if err != nil {
+	if options.Format == FormatImages {
+		if err := c.options.FS.MkdirAll(path, c.options.ModeDir); err != nil {
 			return "", err
 		}
-
-		page.SetImage(image)
+		for i, page := range downloadedPages {
+			name := fmt.Sprintf("%04d%s", i+1, page.Extension())
+			if err := afero.WriteFile(c.options.FS, filepath.Join(path, name), page.Image(), c.options.ModeFile); err != nil {
+				return "", err
+			}
+		}
+		return metadata.DownloadStatusSkip, nil
 	}
 
 	// Only CBZ writes the ComicInfo.xml, so by default it's skipped
-	ciXmlStatusSkip := metadata.DownloadStatusSkip
+	ciXMLStatus := metadata.DownloadStatusSkip
+	var buf bytes.Buffer
 	switch options.Format {
 	case FormatPDF:
-		file, err := c.options.FS.Create(path)
-		if err != nil {
-			return "", err
-		}
-		defer file.Close()
-
-		return ciXmlStatusSkip, c.savePDF(downloadedPages, file)
+		err = c.savePDF(downloadedPages, &buf)
 	case FormatTAR:
-		file, err := c.options.FS.Create(path)
-		if err != nil {
-			return "", err
-		}
-		defer file.Close()
-
-		return ciXmlStatusSkip, c.saveTAR(downloadedPages, file)
+		err = c.saveTAR(downloadedPages, &buf)
 	case FormatTARGZ:
-		file, err := c.options.FS.Create(path)
-		if err != nil {
-			return "", err
-		}
-		defer file.Close()
-
-		return ciXmlStatusSkip, c.saveTARGZ(downloadedPages, file)
+		err = c.saveTARGZ(downloadedPages, &buf)
 	case FormatZIP:
-		file, err := c.options.FS.Create(path)
-		if err != nil {
-			return "", err
-		}
-		defer file.Close()
-
-		return ciXmlStatusSkip, c.saveZIP(downloadedPages, file)
+		err = c.saveZIP(downloadedPages, &buf)
 	case FormatCBZ:
 		var comicInfoXML *metadata.ComicInfoXML
 		ciXMLFailed := false
@@ -311,46 +297,28 @@ func (c *Client) downloadChapter(
 			case err == nil:
 				comicInfoXML = &ciXML
 			case options.Strict:
-				return "", err
+				return "", fmt.Errorf("%s: %w", metadata.FilenameComicInfoXML, err)
 			default:
 				c.logger.Log("getting %s: %s", metadata.FilenameComicInfoXML, err)
 				ciXMLFailed = true
 			}
 		}
 
-		file, err := c.options.FS.Create(path)
-		if err != nil {
-			return "", err
+		ciXMLStatus, err = c.saveCBZ(downloadedPages, &buf, comicInfoXML, options.ComicInfoXMLOptions)
+		if ciXMLFailed {
+			ciXMLStatus = metadata.DownloadStatusFailed
 		}
-		defer file.Close()
-
-		status, err := c.saveCBZ(downloadedPages, file, comicInfoXML, options.ComicInfoXMLOptions)
-		if err == nil && ciXMLFailed {
-			status = metadata.DownloadStatusFailed
-		}
-		return status, err
-	case FormatImages:
-		if err := c.options.FS.MkdirAll(path, c.options.ModeDir); err != nil {
-			return "", err
-		}
-
-		for i, page := range downloadedPages {
-			name := fmt.Sprintf("%04d%s", i+1, page.Extension())
-			err := afero.WriteFile(
-				c.options.FS,
-				filepath.Join(path, name),
-				page.Image(),
-				c.options.ModeFile,
-			)
-			if err != nil {
-				return "", err
-			}
-		}
-
-		return ciXmlStatusSkip, nil
 	default:
-		return "", fmt.Errorf("unknown format %d", options.Format)
+		err = fmt.Errorf("unknown format %d", options.Format)
 	}
+	if err != nil {
+		return "", fmt.Errorf("write %s: %w", options.Format, err)
+	}
+
+	if err := afero.WriteFile(c.options.FS, path, buf.Bytes(), c.options.ModeFile); err != nil {
+		return "", err
+	}
+	return ciXMLStatus, nil
 }
 
 // DownloadPagesInBatch downloads multiple pages in batch
@@ -363,7 +331,7 @@ func (c *Client) DownloadPagesInBatch(
 	pages []mangadata.Page,
 ) ([]mangadata.PageWithImage, error) {
 	if len(pages) == 0 {
-		return nil, fmt.Errorf("no pages provided for chapter")
+		return nil, errors.New("no pages")
 	}
 	c.logger.Log("downloading %d pages", len(pages))
 
@@ -378,7 +346,7 @@ func (c *Client) DownloadPagesInBatch(
 
 			downloaded, err := c.DownloadPage(ctx, page)
 			if err != nil {
-				return err
+				return fmt.Errorf("page %d: %w", i+1, err)
 			}
 
 			c.logger.Log("page #%03d: done", i+1)

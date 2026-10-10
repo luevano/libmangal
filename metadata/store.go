@@ -35,6 +35,11 @@ type store struct {
 // get opens the bucket for a single operation, so concurrent calls don't share a handle
 // and file-backed stores aren't held open between calls.
 func (s store) get(bucketName, key string, v any) (found bool, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("get %s %q: %w", bucketName, key, err)
+		}
+	}()
 	st, err := s.openStore(bucketName)
 	if err != nil {
 		return false, err
@@ -44,6 +49,11 @@ func (s store) get(bucketName, key string, v any) (found bool, err error) {
 }
 
 func (s store) set(bucketName, key string, v any) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("set %s %q: %w", bucketName, key, err)
+		}
+	}()
 	st, err := s.openStore(bucketName)
 	if err != nil {
 		return err

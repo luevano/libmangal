@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/luevano/libmangal/mangadata"
@@ -230,18 +231,16 @@ func (c *Client) downloadMangaImage(
 	case mangaImageBanner:
 		URL = getBanner(manga)
 	default:
-		return fmt.Errorf("unknown manga image type %q to download", mangaImage)
+		return fmt.Errorf("unknown manga image type %q", mangaImage)
 	}
 	if URL == "" {
-		msgFmt := "%s image url not found"
-		c.logger.Log(msgFmt, mangaImage)
-		return fmt.Errorf(msgFmt, mangaImage)
+		return fmt.Errorf("no %s image url", mangaImage)
 	}
 	c.logger.Log("%s image url: %s", mangaImage, URL)
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, URL, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("download %s: %w", mangaImage, err)
 	}
 
 	// TODO: change referer? this asumes that the cover/banner URL comes
@@ -252,17 +251,19 @@ func (c *Client) downloadMangaImage(
 
 	response, err := c.options.HTTPClient.Do(request)
 	if err != nil {
-		return err
+		return fmt.Errorf("download %s: %w", mangaImage, err)
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected http status: %s", response.Status)
+		return fmt.Errorf("download %s: GET %s: %d %s", mangaImage, URL, response.StatusCode, strings.ToLower(http.StatusText(response.StatusCode)))
 	}
 
-	_, err = io.Copy(out, response.Body)
-	return err
+	if _, err := io.Copy(out, response.Body); err != nil {
+		return fmt.Errorf("download %s: %w", mangaImage, err)
+	}
+	return nil
 }
 
 // getCover returns the cover image URL.

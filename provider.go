@@ -2,6 +2,7 @@ package libmangal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -38,18 +39,18 @@ type ProviderInfo struct {
 // and ProviderInfo.Version is a valid semver.
 func (p ProviderInfo) Validate() error {
 	if p.ID == "" {
-		return fmt.Errorf("ID must be non-empty")
+		return errors.New("empty id")
 	}
 
 	if p.Name == "" {
-		return fmt.Errorf("name must be non-empty")
+		return errors.New("empty name")
 	}
 
 	// according to the semver specification,
 	// versions should not have "v" prefix. E.g. v0.1.0 isn't a valid semver,
 	// however, for some bizarre reason, Go semver package requires this prefix.
 	if !semver.IsValid("v" + p.Version) {
-		return fmt.Errorf("invalid semver: %s", p.Version)
+		return fmt.Errorf("invalid semver %q", p.Version)
 	}
 
 	return nil

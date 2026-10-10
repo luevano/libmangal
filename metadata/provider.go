@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -54,22 +55,22 @@ type ProviderInfo struct {
 // Version is a valid semver.
 func (p ProviderInfo) Validate() error {
 	if p.ID == "" {
-		return fmt.Errorf("ID must be non-empty")
+		return errors.New("empty id")
 	}
 
 	if p.Code == "" {
-		return fmt.Errorf("Code must be non-empty")
+		return errors.New("empty code")
 	}
 
 	if p.Name == "" {
-		return fmt.Errorf("Name must be non-empty")
+		return errors.New("empty name")
 	}
 
 	// according to the semver specification,
 	// versions should not have "v" prefix. E.g. v0.1.0 isn't a valid semver,
 	// however, for some bizarre reason, Go semver package requires this prefix.
 	if !semver.IsValid("v" + p.Version) {
-		return fmt.Errorf("invalid semver: %s", p.Version)
+		return fmt.Errorf("invalid semver %q", p.Version)
 	}
 
 	return nil
@@ -132,10 +133,10 @@ type ProviderWithCache struct {
 // NewProviderWithCache constructs new Provider with cache given the Provider.
 func NewProviderWithCache(options ProviderWithCacheOptions) (*ProviderWithCache, error) {
 	if options.Provider == nil {
-		return nil, Error("nil Provider passed to ProviderWithCache")
+		return nil, errors.New("invalid options: nil Provider")
 	}
 	if options.CacheStore == nil {
-		return nil, Error("nil CacheStore passed to ProviderWithCache")
+		return nil, errors.New("invalid options: nil CacheStore")
 	}
 
 	s := store{
@@ -158,6 +159,10 @@ func NewProviderWithCache(options ProviderWithCacheOptions) (*ProviderWithCache,
 	}
 
 	return p, nil
+}
+
+func (p *ProviderWithCache) cacheError(err error) error {
+	return fmt.Errorf("%s: cache: %w", p.Info().ID, err)
 }
 
 func (p *ProviderWithCache) String() string {
@@ -189,7 +194,7 @@ func (p *ProviderWithCache) SearchByID(ctx context.Context, id int) (Metadata, b
 	p.logger.Log("searching manga metadata with id %d on %q", id, p.Info().Name)
 	meta, found, err := p.store.getMeta(id)
 	if err != nil {
-		return nil, false, Error(err.Error())
+		return nil, false, p.cacheError(err)
 	}
 	if found {
 		return meta, true, nil
@@ -197,15 +202,14 @@ func (p *ProviderWithCache) SearchByID(ctx context.Context, id int) (Metadata, b
 
 	meta, ok, err := p.provider.SearchByID(ctx, id)
 	if err != nil {
-		return nil, false, Error(err.Error())
+		return nil, false, err
 	}
 	if !ok {
 		return nil, false, nil
 	}
 
-	err = p.store.setMeta(id, meta)
-	if err != nil {
-		return nil, false, Error(err.Error())
+	if err := p.store.setMeta(id, meta); err != nil {
+		return nil, false, p.cacheError(err)
 	}
 
 	return meta, true, nil
@@ -220,7 +224,7 @@ func (p *ProviderWithCache) Search(ctx context.Context, query string) ([]Metadat
 	p.logger.Log("searching manga metadata with query %q on %q", query, p.Info().Name)
 	ids, found, err := p.store.getQueryIDs(query)
 	if err != nil {
-		return nil, Error(err.Error())
+		return nil, p.cacheError(err)
 	}
 	if found {
 		var metas []Metadata
@@ -245,19 +249,17 @@ func (p *ProviderWithCache) Search(ctx context.Context, query string) ([]Metadat
 	for i, meta := range metas {
 		id, err := strconv.Atoi(meta.ID().Raw)
 		if err != nil {
-			return nil, Error(err.Error())
+			return nil, fmt.Errorf("%s: search %q: result %q: id %q isn't an integer", p.Info().ID, query, meta, meta.ID().Raw)
 		}
-		err = p.store.setMeta(id, meta)
-		if err != nil {
-			return nil, Error(err.Error())
+		if err := p.store.setMeta(id, meta); err != nil {
+			return nil, p.cacheError(err)
 		}
 
 		ids[i] = id
 	}
 
-	err = p.store.setQueryIDs(query, ids)
-	if err != nil {
-		return nil, Error(err.Error())
+	if err := p.store.setQueryIDs(query, ids); err != nil {
+		return nil, p.cacheError(err)
 	}
 
 	return metas, nil
@@ -269,7 +271,7 @@ func (p *ProviderWithCache) FindClosest(ctx context.Context, title string, tries
 
 	id, found, err := p.store.getTitleID(title)
 	if err != nil {
-		return nil, false, Error(err.Error())
+		return nil, false, p.cacheError(err)
 	}
 	if found {
 		// the title may be bound by the user, so look the id up even if its metadata expired
@@ -285,7 +287,7 @@ func (p *ProviderWithCache) FindClosest(ctx context.Context, title string, tries
 
 	meta, ok, err := p.findClosest(ctx, title, tries, steps)
 	if err != nil {
-		return nil, false, Error(err.Error())
+		return nil, false, err
 	}
 	if !ok {
 		return nil, false, nil
@@ -293,11 +295,10 @@ func (p *ProviderWithCache) FindClosest(ctx context.Context, title string, tries
 
 	id, err = strconv.Atoi(meta.ID().Raw)
 	if err != nil {
-		return nil, false, Error(err.Error())
+		return nil, false, fmt.Errorf("%s: closest to %q: id %q isn't an integer", p.Info().ID, title, meta.ID().Raw)
 	}
-	err = p.store.setTitleID(title, id)
-	if err != nil {
-		return nil, false, Error(err.Error())
+	if err := p.store.setTitleID(title, id); err != nil {
+		return nil, false, p.cacheError(err)
 	}
 
 	return meta, true, nil
@@ -338,9 +339,8 @@ func (p *ProviderWithCache) findClosest(ctx context.Context, title string, tries
 // the same manga metadata with that id is obtained.
 func (p *ProviderWithCache) BindTitleWithID(title string, id int) error {
 	p.logger.Log("binding manga title %q to manga metadata id %d on %q", title, id, p.Info().Name)
-	err := p.store.setTitleID(title, id)
-	if err != nil {
-		return Error(err.Error())
+	if err := p.store.setTitleID(title, id); err != nil {
+		return p.cacheError(err)
 	}
 	return nil
 }

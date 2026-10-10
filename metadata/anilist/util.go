@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io"
 	"net/http"
-	"strconv"
-	"time"
 )
 
 type apiRequestBody struct {
@@ -31,52 +29,34 @@ func sendRequest[Data any](
 ) (data Data, err error) {
 	marshalled, err := json.Marshal(requestBody)
 	if err != nil {
-		return data, err
+		return data, fmt.Errorf("anilist: encode request: %w", err)
 	}
 
-	resp, err := anilist.genericRequest(ctx, http.MethodPost, apiURL, bytes.NewReader(marshalled), true)
+	resp, err := anilist.genericRequest(ctx, http.MethodPost, anilist.apiURL, bytes.NewReader(marshalled), true)
 	if err != nil {
-		return data, err
+		return data, fmt.Errorf("anilist: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// https://anilist.gitbook.io/anilist-apiv2-docs/overview/rate-limiting
 	if resp.StatusCode == http.StatusTooManyRequests {
-		retryAfter := resp.Header.Get("X-RateLimit-Remaining")
-		if retryAfter == "" {
-			// 90 seconds
-			retryAfter = "90"
-		}
-
-		seconds, err := strconv.Atoi(retryAfter)
-		if err != nil {
-			return data, err
-		}
-
-		anilist.logger.Log("rate limited, retrying in %d seconds", seconds)
-
-		select {
-		case <-time.After(time.Duration(seconds) * time.Second):
-		case <-ctx.Done():
-			return data, ctx.Err()
-		}
-
-		return sendRequest[Data](ctx, anilist, requestBody)
+		return data, &RateLimitError{RetryAfter: retryAfter(resp.Header)}
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return data, errors.New(resp.Status)
-	}
-
+	// errors come with a body like {"errors": [{"message": "Not Found.", "status": 404}]}
 	var res apiResponse[Data]
-	err = json.NewDecoder(resp.Body).Decode(&res)
-	if err != nil {
-		return data, err
+	decodeErr := json.NewDecoder(resp.Body).Decode(&res)
+	if resp.StatusCode != http.StatusOK || len(res.Errors) != 0 {
+		httpErr := &HTTPError{StatusCode: resp.StatusCode}
+		if len(res.Errors) != 0 {
+			httpErr.Message = res.Errors[0].Message
+			if status := res.Errors[0].Status; status != 0 {
+				httpErr.StatusCode = status
+			}
+		}
+		return data, httpErr
 	}
-
-	if res.Errors != nil {
-		err := res.Errors[0]
-		return data, errors.New(err.Message)
+	if decodeErr != nil {
+		return data, fmt.Errorf("anilist: decode response: %w", decodeErr)
 	}
 
 	return res.Data, nil

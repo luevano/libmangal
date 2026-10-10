@@ -2,8 +2,10 @@ package metadata
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -134,5 +136,31 @@ func TestFindClosestLogsID(t *testing.T) {
 	}
 	if !slices.Contains(logs, `found closest: "Berserk" with id 7`) {
 		t.Errorf("logs %q, want the closest id", logs)
+	}
+}
+
+func TestCacheErrorsWrap(t *testing.T) {
+	errStore := errors.New("store down")
+	p, err := NewProviderWithCache(ProviderWithCacheOptions{
+		Provider:   &fakeProvider{},
+		CacheStore: func(string, string) (gokv.Store, error) { return nil, errStore },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err = p.SearchByID(context.Background(), 7)
+	if !errors.Is(err, errStore) {
+		t.Fatalf("got %v, want it to wrap %v", err, errStore)
+	}
+	if want := `fake: cache: get id-to-manga "7": store down`; err.Error() != want {
+		t.Errorf("got %q, want %q", err, want)
+	}
+}
+
+func TestValidateWraps(t *testing.T) {
+	err := Validate(&fakeMeta{id: 0, title: "x"})
+	if err == nil || !strings.HasPrefix(err.Error(), "invalid metadata: ") {
+		t.Errorf("got %v", err)
 	}
 }

@@ -2,6 +2,7 @@ package libmangal
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -85,5 +86,30 @@ func TestDownloadPagesConcurrencyLimit(t *testing.T) {
 	}
 	if got := provider.maxInFlight.Load(); got > 3 {
 		t.Errorf("%d pages downloaded at once, want at most 3", got)
+	}
+}
+
+func TestDownloadErrorsWrap(t *testing.T) {
+	errImage := errors.New("fake: image of page: 403 forbidden")
+	c, err := NewClient(context.Background(), fakeLoader{&fakeProvider{imageErr: errImage}}, DefaultClientOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	options := DefaultDownloadOptions()
+	options.Directory = t.TempDir()
+	options.SearchMetadata = false
+
+	_, err = c.DownloadChapter(context.Background(), newFakeChapter(validMeta(), 1), options)
+	if !errors.Is(err, errImage) {
+		t.Fatalf("got %v, want it to wrap %v", err, errImage)
+	}
+	if want := "page 1: " + errImage.Error(); err.Error() != want {
+		t.Errorf("got %q, want %q", err, want)
+	}
+
+	chapter := newFakeChapter(validMeta(), 1)
+	chapter.info.Unavailable = "external"
+	if _, err := c.DownloadChapter(context.Background(), chapter, options); !errors.Is(err, ErrUnavailable) {
+		t.Errorf("got %v, want ErrUnavailable", err)
 	}
 }

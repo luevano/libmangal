@@ -3,6 +3,7 @@ package myanimelist
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -29,7 +30,7 @@ func (p *MyAnimeList) Login(ctx context.Context, token string) error {
 	if err != nil {
 		// remove token as it's possible it's not valid
 		p.token = ""
-		return Error(err.Error())
+		return fmt.Errorf("login: %w", err)
 	}
 	p.user = user
 
@@ -39,7 +40,7 @@ func (p *MyAnimeList) Login(ctx context.Context, token string) error {
 // Logout de-authorizes the currently authorized user.
 func (p *MyAnimeList) Logout() error {
 	if !p.Authenticated() {
-		return errors.New("no authenticated user to logout")
+		return fmt.Errorf("logout: mal: %w", metadata.ErrUnauthorized)
 	}
 	p.user = nil
 	p.token = ""
@@ -54,10 +55,10 @@ func (p *MyAnimeList) getAuthenticatedUser(ctx context.Context) (metadata.User, 
 	var user *User
 	err := p.request(ctx, http.MethodGet, "users/@me", params, p.commonMangaReqHeaders(), nil, &user)
 	if err != nil {
-		return nil, errors.New("getting authenticated user data: " + err.Error())
+		return nil, fmt.Errorf("get user: %w", err)
 	}
 	if user == nil {
-		return nil, errors.New("received user data is nil")
+		return nil, errors.New("get user: mal: no user in the response")
 	}
 
 	return user, nil
