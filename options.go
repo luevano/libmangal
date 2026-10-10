@@ -14,6 +14,8 @@ const (
 	defaultUserAgent string      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0"
 	defaultModeDir   fs.FileMode = 0o755
 	defaultModeFile  fs.FileMode = 0o644
+
+	defaultConcurrentPages = 8
 )
 
 // ReadOptions configures the reader options.
@@ -146,6 +148,10 @@ type ClientOptions struct {
 	// ModeFile is the permission bits used for all files created.
 	ModeFile fs.FileMode
 
+	// ConcurrentPages is how many pages of a chapter are downloaded at the same time.
+	// Zero or less means no limit.
+	ConcurrentPages int
+
 	// ProviderName determines the provider directory name.
 	ProviderName func(
 		provider ProviderInfo,
@@ -175,11 +181,12 @@ type ClientOptions struct {
 // DefaultClientOptions constructs default ClientOptions, with default Anilist options as well.
 func DefaultClientOptions() ClientOptions {
 	return ClientOptions{
-		HTTPClient: &http.Client{},
-		UserAgent:  defaultUserAgent,
-		ModeDir:    defaultModeDir,
-		ModeFile:   defaultModeFile,
-		FS:         afero.NewOsFs(),
+		HTTPClient:      &http.Client{},
+		UserAgent:       defaultUserAgent,
+		ModeDir:         defaultModeDir,
+		ModeFile:        defaultModeFile,
+		FS:              afero.NewOsFs(),
+		ConcurrentPages: defaultConcurrentPages,
 		ProviderName: func(provider ProviderInfo) string {
 			return sanitizePath(provider.Name)
 		},

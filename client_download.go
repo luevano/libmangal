@@ -363,6 +363,9 @@ func (c *Client) DownloadPagesInBatch(
 	c.logger.Log("downloading %d pages", len(pages))
 
 	g, ctx := errgroup.WithContext(ctx)
+	if c.options.ConcurrentPages > 0 {
+		g.SetLimit(c.options.ConcurrentPages)
+	}
 	downloadedPages := make([]mangadata.PageWithImage, len(pages))
 	for i, page := range pages {
 		g.Go(func() error {

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/mangadata"
@@ -96,6 +97,8 @@ func (p *fakeProvider) GetPageImage(ctx context.Context, page mangadata.Page) ([
 	}
 	p.mu.Unlock()
 
+	// long enough for downloads to overlap
+	time.Sleep(time.Millisecond)
 	if p.imageErr != nil {
 		return nil, p.imageErr
 	}

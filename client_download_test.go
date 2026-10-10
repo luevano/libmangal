@@ -64,3 +64,26 @@ func TestDownloadChapterStatus(t *testing.T) {
 		t.Errorf("chapter status %q, want %q", down.ChapterStatus, metadata.DownloadStatusExists)
 	}
 }
+
+func TestDownloadPagesConcurrencyLimit(t *testing.T) {
+	provider := &fakeProvider{}
+	options := DefaultClientOptions()
+	options.ConcurrentPages = 3
+	c, err := NewClient(context.Background(), fakeLoader{provider}, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chapter := newFakeChapter(nil, 50)
+	pages, _ := provider.ChapterPages(context.Background(), chapter)
+
+	downloaded, err := c.DownloadPagesInBatch(context.Background(), pages)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(downloaded) != 50 {
+		t.Fatalf("got %d pages, want 50", len(downloaded))
+	}
+	if got := provider.maxInFlight.Load(); got > 3 {
+		t.Errorf("%d pages downloaded at once, want at most 3", got)
+	}
+}
