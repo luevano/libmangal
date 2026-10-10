@@ -15,7 +15,6 @@ import (
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
-	"github.com/spf13/afero"
 )
 
 type mangaImage string
@@ -333,24 +332,4 @@ func (c *Client) writeSeriesJSON(
 
 	_, err = out.Write(marshalled)
 	return err
-}
-
-// removeChapter will remove chapter at given path.
-//
-// Doesn't matter if it's a directory or a file.
-//
-// Currently unused.
-func (c *Client) removeChapter(chapterPath string) error {
-	c.logger.Log("removing %s", chapterPath)
-
-	isDir, err := afero.IsDir(c.options.FS, chapterPath)
-	if err != nil {
-		return err
-	}
-
-	if isDir {
-		return c.options.FS.RemoveAll(chapterPath)
-	}
-
-	return c.options.FS.Remove(chapterPath)
 }

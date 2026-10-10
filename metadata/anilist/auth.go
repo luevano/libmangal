@@ -10,7 +10,6 @@ import (
 
 const (
 	OAuthBaseURL      = "https://anilist.co/api/v2/oauth/"
-	OAuthPinURL       = OAuthBaseURL + "pin"
 	OAuthTokenURL     = OAuthBaseURL + "token"
 	OAuthAuthorizeURL = OAuthBaseURL + "authorize"
 )
