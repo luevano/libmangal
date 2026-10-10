@@ -51,13 +51,19 @@ type Date struct {
 	Day   int `json:"day"`
 }
 
-// TODO: add more checks and print other options for
-// available data (for example if only Year data is available)
+// String formats the date as YYYY-MM-DD, leaving out the unknown (zero) parts:
+// YYYY-MM, YYYY or empty.
 func (d Date) String() string {
-	if d == (Date{}) {
+	switch {
+	case d.Year == 0:
 		return ""
+	case d.Month == 0:
+		return fmt.Sprintf("%d", d.Year)
+	case d.Day == 0:
+		return fmt.Sprintf("%d-%02d", d.Year, d.Month)
+	default:
+		return fmt.Sprintf("%d-%02d-%02d", d.Year, d.Month, d.Day)
 	}
-	return fmt.Sprintf("%d-%02d-%02d", d.Year, d.Month, d.Day)
 }
 
 // ID is the ID information of the metadata.

@@ -4,8 +4,21 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 )
+
+// monthYear formats a date like "November 2011", or just "2011" without a month.
+func monthYear(d Date) string {
+	switch {
+	case d.Year == 0:
+		return ""
+	case d.Month < 1 || d.Month > 12:
+		return strconv.Itoa(d.Year)
+	default:
+		return fmt.Sprintf("%s %d", time.Month(d.Month), d.Year)
+	}
+}
 
 func ToSeriesJSON(m Metadata) SeriesJSON {
 	var status string
@@ -23,22 +36,11 @@ func ToSeriesJSON(m Metadata) SeriesJSON {
 	// Format should be:
 	// "November 2011 - July 2016"
 	// "June 2021 - Present"
-	var pubEndDate string
-	if m.EndDate() != (Date{}) {
-		pubEndDate = fmt.Sprintf(
-			"%s %d",
-			time.Month(m.EndDate().Month).String(),
-			m.EndDate().Year)
-	} else {
+	pubEndDate := monthYear(m.EndDate())
+	if pubEndDate == "" {
 		pubEndDate = "Present"
 	}
-
-	publicationRun := fmt.Sprintf(
-		"%s %d - %s",
-		time.Month(m.StartDate().Month).String(),
-		m.StartDate().Year,
-		pubEndDate,
-	)
+	publicationRun := monthYear(m.StartDate()) + " - " + pubEndDate
 
 	// TODO: clean the description at least for one of the fields?
 	return SeriesJSON{
