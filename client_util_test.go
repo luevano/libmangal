@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"image"
+	"image/png"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
+	"github.com/pdfcpu/pdfcpu/pkg/api"
 )
 
 func testPages(n, size int) []mangadata.PageWithImage {
@@ -84,5 +87,29 @@ func TestMangaImageReferer(t *testing.T) {
 	}
 	if referer != manga.info.URL {
 		t.Errorf("provider cover sent referer %q, want %q", referer, manga.info.URL)
+	}
+}
+
+func TestSavePDF(t *testing.T) {
+	var img bytes.Buffer
+	if err := png.Encode(&img, image.NewGray(image.Rect(0, 0, 20, 30))); err != nil {
+		t.Fatal(err)
+	}
+	pages := testPages(3, 0)
+	for _, p := range pages {
+		p.SetImage(img.Bytes())
+	}
+	c := &Client{options: DefaultClientOptions(), logger: newTestLogger()}
+
+	var out bytes.Buffer
+	if err := c.savePDF(pages, &out); err != nil {
+		t.Fatal(err)
+	}
+	n, err := api.PageCount(bytes.NewReader(out.Bytes()), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 3 {
+		t.Errorf("%d pages, want 3", n)
 	}
 }
