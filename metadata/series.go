@@ -21,15 +21,11 @@ func monthYear(d Date) string {
 }
 
 func ToSeriesJSON(m Metadata) SeriesJSON {
-	var status string
-	// TODO: series.json only has "Ended" and "Continuing", map hiatus and cancelled
+	// series.json only has these two
+	status := "Continuing"
 	switch m.Status() {
-	case StatusFinished:
+	case StatusFinished, StatusCancelled:
 		status = "Ended"
-	case StatusReleasing:
-		status = "Continuing"
-	default:
-		status = "Unknown"
 	}
 
 	// Format should be:
@@ -41,12 +37,11 @@ func ToSeriesJSON(m Metadata) SeriesJSON {
 	}
 	publicationRun := monthYear(m.StartDate()) + " - " + pubEndDate
 
-	// TODO: strip the html (e.g. AniList's <br>) from DescriptionText
 	return SeriesJSON{
 		Type:                 "comicSeries",
 		Name:                 m.Title(),
 		DescriptionFormatted: m.Description(),
-		DescriptionText:      m.Description(),
+		DescriptionText:      StripHTML(m.Description()),
 		Status:               status,
 		Year:                 m.StartDate().Year,
 		ComicImage:           m.Cover(),

@@ -39,3 +39,31 @@ func TestDateString(t *testing.T) {
 		}
 	}
 }
+
+type statusMeta struct {
+	fakeMeta
+	status Status
+}
+
+func (m *statusMeta) Status() Status { return m.status }
+
+func TestSeriesJSONStatus(t *testing.T) {
+	for status, want := range map[Status]string{
+		StatusFinished:       "Ended",
+		StatusCancelled:      "Ended",
+		StatusReleasing:      "Continuing",
+		StatusHiatus:         "Continuing",
+		StatusNotYetReleased: "Continuing",
+	} {
+		if got := ToSeriesJSON(&statusMeta{status: status}).Status; got != want {
+			t.Errorf("%s: got %q, want %q", status, got, want)
+		}
+	}
+}
+
+func TestStripHTML(t *testing.T) {
+	got := StripHTML("A<br>B<BR/>\n\n\n\nC &quot;<b>D</b>&quot;")
+	if want := "A\nB\n\nC \"D\""; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

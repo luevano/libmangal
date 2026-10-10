@@ -49,3 +49,55 @@ func TestComicInfoXML(t *testing.T) {
 		t.Error("date written with AddDate false")
 	}
 }
+
+type koreanMeta struct {
+	comicMeta
+}
+
+func (m *koreanMeta) Country() string     { return "KR" }
+func (m *koreanMeta) AgeRating() string   { return AgeRatingAdultsOnly }
+func (m *koreanMeta) Description() string { return "Line one.<br><br>\nLine <i>two</i> &amp; more." }
+
+func TestComicInfoXMLFields(t *testing.T) {
+	ci := ToComicInfoXML(&koreanMeta{comicMeta{fakeMeta{id: 1, title: "Solo Leveling"}}}, Chapter{Number: 3, Volume: 2, ScanlationGroup: "Group"})
+	options := DefaultComicInfoOptions()
+	options.LanguageISO = "en"
+	options.AddVolume = true
+	out, err := ci.Marshal(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(out)
+	for _, want := range []string{
+		"<Manga>Yes</Manga>",
+		"<AgeRating>Adults Only 18+</AgeRating>",
+		"<ScanInformation>Group</ScanInformation>",
+		"<LanguageISO>en</LanguageISO>",
+		"<Volume>2</Volume>",
+		"<Summary>Line one.&#xA;&#xA;Line two &amp; more.</Summary>",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %s in:\n%s", want, got)
+		}
+	}
+
+	// the xsd sequence order
+	order := []string{"<Title", "<Series>", "<Number>", "<Volume>", "<Summary>", "<Notes>", "<Year>", "<Writer>", "<Translator>", "<Genre>", "<PageCount", "<LanguageISO>", "<Manga>", "<ScanInformation>", "<AgeRating>"}
+	last := -1
+	for _, tag := range order {
+		i := strings.Index(got, tag)
+		if i == -1 {
+			continue
+		}
+		if i < last {
+			t.Errorf("%s out of order", tag)
+		}
+		last = i
+	}
+
+	// volume is opt in
+	out, _ = ci.Marshal(DefaultComicInfoOptions())
+	if strings.Contains(string(out), "<Volume>") {
+		t.Error("volume written without AddVolume")
+	}
+}

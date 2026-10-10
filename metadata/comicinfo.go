@@ -13,7 +13,19 @@ type Chapter struct {
 	Date            Date    `json:"date"`
 	ScanlationGroup string  `json:"scanlation_group"`
 	Pages           int     `json:"pages"`
+	// Volume number, 0 if unknown.
+	Volume float32 `json:"volume"`
 }
+
+// AgeRated is Metadata that knows the manga's age rating.
+type AgeRated interface {
+	// AgeRating is one of the ComicInfo.xml age ratings (e.g. AgeRatingAdultsOnly),
+	// empty if unknown.
+	AgeRating() string
+}
+
+// AgeRatingAdultsOnly is the ComicInfo.xml age rating for adult content.
+const AgeRatingAdultsOnly = "Adults Only 18+"
 
 func ToComicInfoXML(m Metadata, chapter Chapter) ComicInfoXML {
 	var date Date
@@ -30,14 +42,19 @@ func ToComicInfoXML(m Metadata, chapter Chapter) ComicInfoXML {
 		translators = []string{chapter.ScanlationGroup}
 	}
 
-	// TODO: fill Volume, LanguageISO, AgeRating and ScanInformation (scanlation group)
+	var ageRating string
+	if rated, ok := m.(AgeRated); ok {
+		ageRating = rated.AgeRating()
+	}
+
 	return ComicInfoXML{
 		Title:           chapter.Title,
 		Series:          m.Title(),
 		Number:          chapter.Number,
+		Volume:          chapter.Volume,
 		Web:             chapter.URL,
 		Genres:          m.Genres(),
-		Summary:         m.Description(),
+		Summary:         StripHTML(m.Description()),
 		Count:           m.Chapters(),
 		PageCount:       chapter.Pages,
 		Characters:      m.Characters(),
@@ -48,8 +65,9 @@ func ToComicInfoXML(m Metadata, chapter Chapter) ComicInfoXML {
 		LanguageISO:     "",
 		StoryArc:        "",
 		StoryArcNumber:  0,
-		ScanInformation: "",
-		AgeRating:       "",
+		ScanInformation: chapter.ScanlationGroup,
+		AgeRating:       ageRating,
+		Country:         m.Country(),
 		CommunityRating: m.Score(),
 		Review:          "",
 		GTIN:            "",
@@ -75,6 +93,12 @@ type ComicInfoXML struct {
 
 	// Number of the book in the series.
 	Number float32
+
+	// Volume the book is in, 0 if unknown.
+	Volume float32
+
+	// Country of origin of the series (ISO 3166-1 alpha-2), decides the reading direction.
+	Country string
 
 	// Web a URL pointing to a reference website for the book.
 	Web string
@@ -176,7 +200,6 @@ func (c *ComicInfoXML) Marshal(options ComicInfoXMLOptions) ([]byte, error) {
 }
 
 func (c *ComicInfoXML) wrapper(options ComicInfoXMLOptions) comicInfoXMLWrapper {
-	// TODO: "Yes" (left to right) for manhwa/manhua, or make it configurable
 	wrapper := comicInfoXMLWrapper{
 		XmlnsXsd:        "http://www.w3.org/2001/XMLSchema",
 		XmlnsXsi:        "http://www.w3.org/2001/XMLSchema-instance",
@@ -198,7 +221,7 @@ func (c *ComicInfoXML) wrapper(options ComicInfoXMLOptions) comicInfoXMLWrapper 
 		Translator:      strings.Join(c.Translators, ","),
 		Tags:            strings.Join(c.Tags, ","),
 		Notes:           strings.TrimLeft(c.Notes+"\n\nDownloaded with libmangal\nhttps://github.com/luevano/libmangal", "\n"),
-		Manga:           "YesAndRightToLeft",
+		Manga:           mangaReading(c.Country),
 		StoryArc:        c.StoryArc,
 		StoryArcNumber:  c.StoryArcNumber,
 		ScanInformation: c.ScanInformation,
@@ -209,6 +232,13 @@ func (c *ComicInfoXML) wrapper(options ComicInfoXMLOptions) comicInfoXMLWrapper 
 		Format:          c.Format,
 		LanguageISO:     c.LanguageISO,
 		Publisher:       c.Publisher,
+	}
+	if options.LanguageISO != "" {
+		wrapper.LanguageISO = options.LanguageISO
+	}
+	// scrapers report a single made up volume, so it's opt in
+	if options.AddVolume && c.Volume > 0 && c.Volume == float32(int(c.Volume)) {
+		wrapper.Volume = int(c.Volume)
 	}
 
 	if !options.AddDate {
@@ -225,6 +255,20 @@ func (c *ComicInfoXML) wrapper(options ComicInfoXMLOptions) comicInfoXMLWrapper 
 	return wrapper
 }
 
+// mangaReading is the Manga field: manhwa and manhua (webtoons mostly) read left to right.
+func mangaReading(country string) string {
+	switch strings.ToUpper(country) {
+	case "KR", "CN", "TW":
+		return "Yes"
+	default:
+		return "YesAndRightToLeft"
+	}
+}
+
+// comicInfoXMLWrapper fields are in the order of the ComicInfo.xsd v2.0 sequence, some
+// readers validate it.
+//
+// https://github.com/anansi-project/comicinfo/blob/main/schema/v2.0/ComicInfo.xsd
 type comicInfoXMLWrapper struct {
 	// XMLName is a meta field that must be left unchanged
 	XMLName xml.Name `xml:"ComicInfo"`
@@ -236,12 +280,10 @@ type comicInfoXMLWrapper struct {
 	Title           string  `xml:"Title,omitempty"`
 	Series          string  `xml:"Series,omitempty"`
 	Number          float32 `xml:"Number"` // Omiting removes chapter 0.0
-	Web             string  `xml:"Web,omitempty"`
-	Genre           string  `xml:"Genre,omitempty"`
-	Summary         string  `xml:"Summary,omitempty"`
 	Count           int     `xml:"Count,omitempty"`
-	PageCount       int     `xml:"PageCount,omitempty"`
-	Characters      string  `xml:"Characters,omitempty"`
+	Volume          int     `xml:"Volume,omitempty"`
+	Summary         string  `xml:"Summary,omitempty"`
+	Notes           string  `xml:"Notes,omitempty"`
 	Year            int     `xml:"Year,omitempty"`
 	Month           int     `xml:"Month,omitempty"`
 	Day             int     `xml:"Day,omitempty"`
@@ -249,17 +291,20 @@ type comicInfoXMLWrapper struct {
 	Penciller       string  `xml:"Penciller,omitempty"`
 	Letterer        string  `xml:"Letterer,omitempty"`
 	Translator      string  `xml:"Translator,omitempty"`
+	Publisher       string  `xml:"Publisher,omitempty"`
+	Genre           string  `xml:"Genre,omitempty"`
 	Tags            string  `xml:"Tags,omitempty"`
-	Notes           string  `xml:"Notes,omitempty"`
+	Web             string  `xml:"Web,omitempty"`
+	PageCount       int     `xml:"PageCount,omitempty"`
+	LanguageISO     string  `xml:"LanguageISO,omitempty"`
+	Format          string  `xml:"Format,omitempty"`
 	Manga           string  `xml:"Manga,omitempty"`
+	Characters      string  `xml:"Characters,omitempty"`
+	ScanInformation string  `xml:"ScanInformation,omitempty"`
 	StoryArc        string  `xml:"StoryArc,omitempty"`
 	StoryArcNumber  int     `xml:"StoryArcNumber,omitempty"`
-	ScanInformation string  `xml:"ScanInformation,omitempty"`
 	AgeRating       string  `xml:"AgeRating,omitempty"`
 	CommunityRating float32 `xml:"CommunityRating,omitempty"`
 	Review          string  `xml:"Review,omitempty"`
 	GTIN            string  `xml:"GTIN,omitempty"`
-	Format          string  `xml:"Format,omitempty"`
-	LanguageISO     string  `xml:"LanguageISO,omitempty"`
-	Publisher       string  `xml:"Publisher,omitempty"`
 }

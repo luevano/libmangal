@@ -295,6 +295,7 @@ func (c *Client) downloadChapter(
 				Date:            mangaChapter.Date,
 				ScanlationGroup: mangaChapter.ScanlationGroup,
 				Pages:           len(downloadedPages),
+				Volume:          chapter.Volume().Info().Number,
 			}
 			ciXML, err := c.getComicInfoXML(chapter, metaChapter)
 			switch {

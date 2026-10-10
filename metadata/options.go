@@ -47,6 +47,13 @@ type ComicInfoXMLOptions struct {
 
 	// AlternativeDate use other date.
 	AlternativeDate *Date
+
+	// LanguageISO of the chapters (e.g. "en"), empty to leave it out.
+	LanguageISO string
+
+	// AddVolume writes the chapter's volume number. Off by default, providers without
+	// real volumes (most scrapers) put every chapter in volume 1.
+	AddVolume bool
 }
 
 // DefaultComicInfoOptions constructs default ComicInfoXMLOptions.

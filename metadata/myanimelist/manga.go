@@ -9,7 +9,10 @@ import (
 
 const mangaURL = "https://myanimelist.net/manga/"
 
-var _ metadata.Metadata = (*Manga)(nil)
+var (
+	_ metadata.Metadata = (*Manga)(nil)
+	_ metadata.AgeRated = (*Manga)(nil)
+)
 
 type Status string
 
@@ -279,7 +282,25 @@ func (m *Manga) Format() string {
 }
 
 // Country of origin of the manga. ISO 3166-1 alpha-2 country code.
+//
+// MAL has no country, only the media type tells manhwa and manhua apart.
 func (m *Manga) Country() string {
+	switch m.MediaType {
+	case "manhwa":
+		return "KR"
+	case "manhua":
+		return "CN"
+	case "manga":
+		return "JP"
+	}
+	return ""
+}
+
+// AgeRating is the ComicInfo.xml age rating, only known for adult mangas.
+func (m *Manga) AgeRating() string {
+	if m.NSFW == "black" {
+		return metadata.AgeRatingAdultsOnly
+	}
 	return ""
 }
 

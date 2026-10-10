@@ -7,7 +7,10 @@ import (
 	"github.com/luevano/libmangal/metadata"
 )
 
-var _ metadata.Metadata = (*Manga)(nil)
+var (
+	_ metadata.Metadata = (*Manga)(nil)
+	_ metadata.AgeRated = (*Manga)(nil)
+)
 
 // Manga is a metadata.Metadata implementation
 // for Anilist manga metadata.
@@ -60,6 +63,7 @@ type Manga struct {
 	ChapterCount      int             `json:"chapters" jsonschema:"description=Amount of chapters the manga has when complete."`
 	SiteURL           string          `json:"siteUrl" jsonschema:"description=URL of the manga on AnilistSearch."`
 	CountryOfOrigin   string          `json:"countryOfOrigin" jsonschema:"description=Country of origin of the manga. ISO 3166-1 alpha-2 country code."`
+	IsAdult           bool            `json:"isAdult" jsonschema:"description=If the manga is intended only for 18+ adult audiences."`
 	IDProvider        int             `json:"id" jsonschema:"description=ID of the manga on AnilistSearch."`
 	IDMal             int             `json:"idMal" jsonschema:"description=ID of the manga on MyAnimeList."`
 	External          []struct {
@@ -259,6 +263,14 @@ func (m *Manga) Format() string {
 // Country of origin of the manga. ISO 3166-1 alpha-2 country code.
 func (m *Manga) Country() string {
 	return m.CountryOfOrigin
+}
+
+// AgeRating is the ComicInfo.xml age rating, only known for adult mangas.
+func (m *Manga) AgeRating() string {
+	if m.IsAdult {
+		return metadata.AgeRatingAdultsOnly
+	}
+	return ""
 }
 
 // Chapter count until this point.

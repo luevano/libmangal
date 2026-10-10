@@ -41,3 +41,13 @@ func TestStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestCountryAndAgeRating(t *testing.T) {
+	m := &Manga{MediaType: "manhwa", NSFW: "black"}
+	if m.Country() != "KR" || m.AgeRating() != metadata.AgeRatingAdultsOnly {
+		t.Errorf("got %q, %q", m.Country(), m.AgeRating())
+	}
+	if (&Manga{MediaType: "one_shot", NSFW: "white"}).AgeRating() != "" {
+		t.Error("white is rated")
+	}
+}

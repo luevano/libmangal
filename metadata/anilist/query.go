@@ -58,6 +58,7 @@ synonyms
 siteUrl
 chapters
 countryOfOrigin
+isAdult
 externalLinks {
 	url
 }
