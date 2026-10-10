@@ -11,6 +11,9 @@ import (
 	"github.com/skratchdot/open-golang/open"
 )
 
+// openFile opens a file with the os default app, replaced in tests.
+var openFile = open.Run
+
 // SetMetadataProvider will add or update the given metadata Provider.
 func (c *Client) SetMetadataProvider(provider *metadata.ProviderWithCache) error {
 	if provider == nil {
@@ -140,54 +143,43 @@ func (c *Client) ReadChapter(
 ) error {
 	c.logger.Log("opening chapter %q from %s with the default app", chapter, path)
 
-	err := open.Run(path)
-	if err != nil {
+	if err := openFile(path); err != nil {
 		return err
 	}
 
-	if !options.SaveAnilist || !options.SaveHistory {
-		return nil
-	}
+	// TODO: save to local history (options.SaveHistory)
 
-	if len(c.meta) == 0 {
-		return errors.New("no metadata Providers available to mark chapter as read")
+	sync := map[metadata.IDSource]bool{
+		metadata.IDSourceAnilist:     options.SaveAnilist,
+		metadata.IDSourceMyAnimeList: options.SaveMyAnimeList,
 	}
-
-	var setProgressErrors []error
 	progress := int(math.Trunc(float64(chapter.Info().Number)))
-	mangaTitle := chapter.Volume().Manga().Info().Title
-	for id, p := range c.meta {
-		metaID := 0
-		// TODO: find a better way to get the metadata for the current provider
-		meta, found, err := p.FindClosest(ctx, mangaTitle, 3, 3)
-		if err != nil {
-			goto addError
-		}
-		if !found {
-			err = errors.New("no manga metadata found with Provider ID " + string(id))
-			goto addError
-		}
-		metaID = meta.ID().Value()
+	manga := chapter.Volume().Manga()
 
-		// TODO: better handle this mess
-		if (id == metadata.IDSourceAnilist && options.SaveAnilist) ||
-			(id == metadata.IDSourceMyAnimeList && options.SaveMyAnimeList) {
-			err = p.SetMangaProgress(ctx, metaID, progress)
+	var errs []error
+	for _, id := range c.metaOrder {
+		if !sync[id] {
+			continue
+		}
+		delete(sync, id)
+		p := c.meta[id]
+
+		meta, found, err := c.SearchByManga(ctx, p, manga)
+		if err == nil && !found {
+			err = fmt.Errorf("no metadata found for manga %q", manga)
+		}
+		if err == nil {
+			err = p.SetMangaProgress(ctx, meta.ID().Value(), progress)
 		}
 		if err != nil {
-			goto addError
+			c.logger.Log("setting manga progress on %q: %s", p, err)
+			errs = append(errs, fmt.Errorf("set progress on %s: %w", p, err))
 		}
-
-		continue
-	addError:
-		c.logger.Log("error while setting manga progress for Provider ID %q: %s", string(id), err.Error())
-		setProgressErrors = append(setProgressErrors, err)
 	}
-
-	// TODO: save to local history
-
-	if len(setProgressErrors) != 0 {
-		return errors.Join(setProgressErrors...)
+	for id, enabled := range sync {
+		if enabled {
+			errs = append(errs, fmt.Errorf("set progress: no metadata provider with source %d", id))
+		}
 	}
-	return nil
+	return errors.Join(errs...)
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/luevano/libmangal/metadata"
+	"github.com/skratchdot/open-golang/open"
 )
 
 func newTestClient(t *testing.T, metas ...metadata.Provider) *Client {
@@ -83,5 +84,44 @@ func TestSearchMetadataSkipsFailingProvider(t *testing.T) {
 	c = newTestClient(t, failing)
 	if _, err := c.SearchMetadata(context.Background(), manga); err == nil {
 		t.Fatal("got no error, want the failing provider's")
+	}
+}
+
+func TestReadChapterSyncsEnabledProviders(t *testing.T) {
+	openFile = func(string) error { return nil }
+	t.Cleanup(func() { openFile = open.Run })
+
+	newProviders := func() (*fakeMetaProvider, *fakeMetaProvider) {
+		ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(7, "Berserk")}}}
+		mal := &fakeMetaProvider{source: metadata.IDSourceMyAnimeList, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(8, "Berserk")}}}
+		return ani, mal
+	}
+	chapter := newFakeChapter(nil, 1)
+	chapter.info.Number = 12.5
+
+	tests := []struct {
+		name             string
+		options          ReadOptions
+		wantAni, wantMAL bool
+	}{
+		{"anilist only", ReadOptions{SaveAnilist: true}, true, false},
+		{"mal only", ReadOptions{SaveMyAnimeList: true}, false, true},
+		{"both", ReadOptions{SaveAnilist: true, SaveMyAnimeList: true}, true, true},
+		{"none", ReadOptions{SaveHistory: true}, false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ani, mal := newProviders()
+			c := newTestClient(t, ani, mal)
+			if err := c.ReadChapter(context.Background(), "x.cbz", chapter, tt.options); err != nil {
+				t.Fatal(err)
+			}
+			if got := ani.progress[7] == 12; got != tt.wantAni {
+				t.Errorf("anilist progress %v, want set=%t", ani.progress, tt.wantAni)
+			}
+			if got := mal.progress[8] == 12; got != tt.wantMAL {
+				t.Errorf("mal progress %v, want set=%t", mal.progress, tt.wantMAL)
+			}
+		})
 	}
 }
