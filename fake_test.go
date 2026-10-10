@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"testing"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/mangadata"
@@ -144,3 +145,89 @@ var errWrite = errors.New("write failed")
 func (errWriter) Write([]byte) (int, error) { return 0, errWrite }
 
 func newTestLogger() *logger.Logger { return logger.NewLogger() }
+
+// fakeMetaProvider is a metadata.Provider answering from fixed maps.
+type fakeMetaProvider struct {
+	source    metadata.IDSource
+	byID      map[int]metadata.Metadata
+	byQuery   map[string][]metadata.Metadata
+	searchErr error
+
+	mu       sync.Mutex
+	queries  []string
+	idCalls  []int
+	progress map[int]int
+	logger   *logger.Logger
+}
+
+func (p *fakeMetaProvider) String() string { return p.Info().Name }
+func (p *fakeMetaProvider) Info() metadata.ProviderInfo {
+	code := map[metadata.IDSource]metadata.IDCode{
+		metadata.IDSourceAnilist:     metadata.IDCodeAnilist,
+		metadata.IDSourceMyAnimeList: metadata.IDCodeMyAnimeList,
+		metadata.IDSourceKitsu:       metadata.IDCodeKitsu,
+	}[p.source]
+	return metadata.ProviderInfo{ID: string(code), Code: code, Source: p.source, Name: "fake-" + string(code), Version: "0.1.0"}
+}
+func (p *fakeMetaProvider) SetLogger(l *logger.Logger) { p.logger = l }
+func (p *fakeMetaProvider) Logger() *logger.Logger     { return p.logger }
+
+func (p *fakeMetaProvider) SearchByID(_ context.Context, id int) (metadata.Metadata, bool, error) {
+	p.mu.Lock()
+	p.idCalls = append(p.idCalls, id)
+	p.mu.Unlock()
+	m, ok := p.byID[id]
+	return m, ok, nil
+}
+
+func (p *fakeMetaProvider) Search(_ context.Context, query string) ([]metadata.Metadata, error) {
+	p.mu.Lock()
+	p.queries = append(p.queries, query)
+	p.mu.Unlock()
+	if p.searchErr != nil {
+		return nil, p.searchErr
+	}
+	return p.byQuery[query], nil
+}
+
+func (p *fakeMetaProvider) SetMangaProgress(_ context.Context, id, chapter int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.progress == nil {
+		p.progress = map[int]int{}
+	}
+	p.progress[id] = chapter
+	return nil
+}
+func (p *fakeMetaProvider) Authenticated() bool                 { return true }
+func (p *fakeMetaProvider) User() metadata.User                 { return nil }
+func (p *fakeMetaProvider) Login(context.Context, string) error { return nil }
+func (p *fakeMetaProvider) Logout() error                       { return nil }
+
+func withCache(t *testing.T, p metadata.Provider) *metadata.ProviderWithCache {
+	t.Helper()
+	options := metadata.DefaultProviderWithCacheOptions()
+	options.Provider = p
+	pwc, err := metadata.NewProviderWithCache(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pwc
+}
+
+// aniMeta is valid metadata from a metadata provider (not the manga provider).
+type aniMeta struct {
+	mangadata.Metadata
+	id     int
+	source metadata.IDSource
+}
+
+func (m *aniMeta) ID() metadata.ID {
+	return metadata.ID{Raw: fmt.Sprint(m.id), Source: m.source, Code: metadata.IDCodeAnilist}
+}
+
+func newAniMeta(id int, title string) *aniMeta {
+	m := &aniMeta{Metadata: *validMeta(), id: id, source: metadata.IDSourceAnilist}
+	m.EnglishTitle = title
+	return m
+}

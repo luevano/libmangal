@@ -90,12 +90,18 @@ func (c *Client) SearchByManga(
 	c.logger.Log("searching metadata by (libmangal) manga on %q", c.Info().Name)
 
 	// Try to search by metadata ID if it is available
-	meta := manga.Metadata()
-	for _, id := range meta.ExtraIDs() {
-		if id.Source == provider.Info().Source {
-			anilistManga, found, err := provider.SearchByID(ctx, id.Value())
-			if err == nil && found {
-				return anilistManga, true, nil
+	if meta := manga.Metadata(); meta != nil {
+		source := provider.Info().Source
+		for _, id := range append([]metadata.ID{meta.ID()}, meta.ExtraIDs()...) {
+			if id.Source != source || id.Value() == 0 {
+				continue
+			}
+			found, ok, err := provider.SearchByID(ctx, id.Value())
+			if err != nil {
+				return nil, false, err
+			}
+			if ok {
+				return found, true, nil
 			}
 		}
 	}
