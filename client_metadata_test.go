@@ -24,7 +24,7 @@ func newTestClient(t *testing.T, metas ...metadata.Provider) *Client {
 }
 
 func TestSearchByMangaWithoutMetadata(t *testing.T) {
-	berserk := newAniMeta(7, "Berserk")
+	berserk := newAniMeta(7, "Fake Manga")
 	ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byQuery: map[string][]metadata.Metadata{"Fake Manga": {berserk}}}
 	c := newTestClient(t)
 	manga := newFakeChapter(nil, 1).volume.manga
@@ -36,11 +36,11 @@ func TestSearchByMangaWithoutMetadata(t *testing.T) {
 }
 
 func TestSearchByMangaUsesMetadataID(t *testing.T) {
-	berserk := newAniMeta(7, "Berserk")
+	berserk := newAniMeta(7, "Fake Manga")
 	ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byID: map[int]metadata.Metadata{7: berserk}}
 	c := newTestClient(t)
 	// the manga already has metadata from this provider (e.g. bound before)
-	manga := newFakeChapter(newAniMeta(7, "Berserk"), 1).volume.manga
+	manga := newFakeChapter(newAniMeta(7, "Fake Manga"), 1).volume.manga
 
 	meta, found, err := c.SearchByMangaContext(context.Background(), withCache(t, ani), manga)
 	if err != nil || !found || meta != berserk {
@@ -52,9 +52,9 @@ func TestSearchByMangaUsesMetadataID(t *testing.T) {
 }
 
 func TestSearchMetadataOrder(t *testing.T) {
-	ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(1, "From AniList")}}}
-	mal := &fakeMetaProvider{source: metadata.IDSourceMyAnimeList, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(2, "From MAL")}}}
-	kitsu := &fakeMetaProvider{source: metadata.IDSourceKitsu, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(3, "From Kitsu")}}}
+	ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(1, "Fake Manga")}}}
+	mal := &fakeMetaProvider{source: metadata.IDSourceMyAnimeList, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(2, "Fake Manga")}}}
+	kitsu := &fakeMetaProvider{source: metadata.IDSourceKitsu, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(3, "Fake Manga")}}}
 	manga := newFakeChapter(nil, 1).volume.manga
 
 	// map iteration would pick a random one now and then
@@ -64,20 +64,20 @@ func TestSearchMetadataOrder(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if meta.Title() != "From MAL" {
-			t.Fatalf("got %q, want the first set provider (MAL)", meta.Title())
+		if meta.ID().Value() != 2 {
+			t.Fatalf("got %v, want the first set provider's (MAL, id 2)", meta)
 		}
 	}
 }
 
 func TestSearchMetadataSkipsFailingProvider(t *testing.T) {
 	failing := &fakeMetaProvider{source: metadata.IDSourceAnilist, searchErr: errors.New("down")}
-	mal := &fakeMetaProvider{source: metadata.IDSourceMyAnimeList, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(2, "From MAL")}}}
+	mal := &fakeMetaProvider{source: metadata.IDSourceMyAnimeList, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(2, "Fake Manga")}}}
 	manga := newFakeChapter(nil, 1).volume.manga
 
 	c := newTestClient(t, failing, mal)
 	meta, err := c.SearchMetadataContext(context.Background(), manga)
-	if err != nil || meta == nil || meta.Title() != "From MAL" {
+	if err != nil || meta == nil || meta.ID().Value() != 2 {
 		t.Fatalf("got %v, %v, want the MAL result", meta, err)
 	}
 
@@ -92,8 +92,8 @@ func TestReadChapterSyncsEnabledProviders(t *testing.T) {
 	t.Cleanup(func() { openFile = open.Run })
 
 	newProviders := func() (*fakeMetaProvider, *fakeMetaProvider) {
-		ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(7, "Berserk")}}}
-		mal := &fakeMetaProvider{source: metadata.IDSourceMyAnimeList, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(8, "Berserk")}}}
+		ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(7, "Fake Manga")}}}
+		mal := &fakeMetaProvider{source: metadata.IDSourceMyAnimeList, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(8, "Fake Manga")}}}
 		return ani, mal
 	}
 	chapter := newFakeChapter(nil, 1)
@@ -123,5 +123,21 @@ func TestReadChapterSyncsEnabledProviders(t *testing.T) {
 				t.Errorf("mal progress %v, want set=%t", mal.progress, tt.wantMAL)
 			}
 		})
+	}
+}
+
+func TestSearchByMangaSkipsBadMatches(t *testing.T) {
+	spinoff := newAniMeta(9, "Fake Manga: Side Story")
+	ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byQuery: map[string][]metadata.Metadata{"Fake Manga": {spinoff}}}
+	c := newTestClient(t)
+	cached := withCache(t, ani)
+	manga := newFakeChapter(nil, 1).volume.manga
+
+	match, found, err := c.MatchMangaContext(context.Background(), cached, manga)
+	if err != nil || !found || match.Metadata != spinoff || !match.Bad() {
+		t.Fatalf("got %+v found=%t err=%v, want the spin-off as a bad match", match, found, err)
+	}
+	if meta, found, err := c.SearchByMangaContext(context.Background(), cached, manga); err != nil || found || meta != nil {
+		t.Errorf("got %v found=%t err=%v, want the bad match not used", meta, found, err)
 	}
 }

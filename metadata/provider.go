@@ -271,79 +271,83 @@ func (p *ProviderWithCache) SearchContext(ctx context.Context, query string) ([]
 	return metas, nil
 }
 
-// FindClosest metadata with the given title with its closest result.
-func (p *ProviderWithCache) FindClosest(title string, tries, steps int) (Metadata, bool, error) {
-	return p.FindClosestContext(context.Background(), title, tries, steps)
+// maxMatchSearches is how many of the query's titles are searched at most,
+// metadata APIs are rate limited (AniList: 30 requests a minute).
+const maxMatchSearches = 3
+
+// FindClosest finds the metadata that best matches the query.
+//
+// A title bound with BindTitleWithID (the query's first title) wins. Otherwise the
+// query's titles are searched in order until a good match, and every result is
+// scored (see Rank). found is false only when there were no results at all; the best
+// match is returned even if it's bad (Match.Bad), for the user to judge, but only
+// good matches are remembered for the title.
+func (p *ProviderWithCache) FindClosest(query Query) (match Match, found bool, err error) {
+	return p.FindClosestContext(context.Background(), query)
 }
 
 // FindClosestContext is FindClosest with a context.
-func (p *ProviderWithCache) FindClosestContext(ctx context.Context, title string, tries, steps int) (Metadata, bool, error) {
-	p.logger.Log("finding closest manga metadata with title %q on %q", title, p.Info().Name)
+func (p *ProviderWithCache) FindClosestContext(ctx context.Context, query Query) (match Match, found bool, err error) {
+	if len(query.Titles) == 0 {
+		return Match{}, false, fmt.Errorf("%s: closest match: no titles", p.Info().ID)
+	}
+	title := query.Titles[0]
+	p.logger.Log("finding closest manga metadata to %q on %q", title, p.Info().Name)
 
 	id, found, err := p.store.getTitleID(title)
 	if err != nil {
-		return nil, false, p.cacheError(err)
+		return Match{}, false, p.cacheError(err)
 	}
 	if found {
 		// the title may be bound by the user, so look the id up even if its metadata expired
 		meta, found, err := p.SearchByIDContext(ctx, id)
 		if err != nil {
-			return nil, false, err
+			return Match{}, false, err
 		}
 		if found {
-			return meta, true, nil
+			return Match{Metadata: meta, Score: Score(query, meta), Bound: true}, true, nil
 		}
 		p.logger.Log("id %d bound to title %q not found, searching by title", id, title)
 	}
 
-	meta, ok, err := p.findClosest(ctx, title, tries, steps)
-	if err != nil {
-		return nil, false, err
+	searches := 0
+	for _, t := range query.Titles {
+		if searches == maxMatchSearches {
+			break
+		}
+		if strings.TrimSpace(t) == "" {
+			continue
+		}
+		searches++
+
+		metas, err := p.SearchContext(ctx, t)
+		if err != nil {
+			return Match{}, false, err
+		}
+		if ranked := Rank(query, metas); len(ranked) != 0 && (!found || ranked[0].Score > match.Score) {
+			match, found = ranked[0], true
+		}
+		if found && !match.Bad() {
+			break
+		}
 	}
-	if !ok {
-		return nil, false, nil
+	if !found {
+		return Match{}, false, nil
 	}
 
-	id, err = strconv.Atoi(meta.ID().Raw)
+	p.logger.Log("closest to %q: %q with id %s (score %.2f)", title, match.Metadata, match.Metadata.ID().Raw, match.Score)
+	if match.Bad() {
+		return match, true, nil
+	}
+
+	id, err = strconv.Atoi(match.Metadata.ID().Raw)
 	if err != nil {
-		return nil, false, fmt.Errorf("%s: closest to %q: id %q isn't an integer", p.Info().ID, title, meta.ID().Raw)
+		return Match{}, false, fmt.Errorf("%s: closest to %q: id %q isn't an integer", p.Info().ID, title, match.Metadata.ID().Raw)
 	}
 	if err := p.store.setTitleID(title, id); err != nil {
-		return nil, false, p.cacheError(err)
+		return Match{}, false, p.cacheError(err)
 	}
-
-	return meta, true, nil
-}
-
-func (p *ProviderWithCache) findClosest(ctx context.Context, title string, tries, step int) (Metadata, bool, error) {
-	for i := 0; i < tries; i++ {
-		p.logger.Log("finding closest try %d/%d", i+1, tries)
-
-		metas, err := p.SearchContext(ctx, title)
-		if err != nil {
-			return nil, false, err
-		}
-
-		if len(metas) > 0 {
-			closest := metas[0]
-			p.logger.Log("found closest: %q with id %s", closest, closest.ID().Raw)
-			return closest, true, nil
-		}
-
-		// try again without the last `step` characters (runes, titles are often not ascii),
-		// keeping at least one
-		runes := []rune(strings.TrimSpace(title))
-		switch {
-		case len(runes) > step:
-			runes = runes[:len(runes)-step]
-		case len(runes) > 1:
-			runes = runes[:len(runes)-1]
-		default:
-			return nil, false, nil
-		}
-		title = string(runes)
-	}
-	return nil, false, nil
+	return match, true, nil
 }
 
 // BindTitleWithID sets a given id to a title, so on each title search

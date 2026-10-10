@@ -92,13 +92,7 @@ func (c *Client) SearchMetadataContext(
 // SearchByManga is a convenience method to search given a Manga.
 // It's meant to be used by the SearchMetadata method.
 //
-// Tries to search manga metadata in the following order:
-//
-// 1. If the manga contains non-nil metadata, by its metadata ID if available.
-//
-// 2. If the manga title is binded to a metadata ID.
-//
-// 3. Find closest manga metadata (FindClosest) by using the manga Title field.
+// It's MatchManga, but only good matches (see metadata.Match.Bad) count as found.
 func (c *Client) SearchByManga(provider *metadata.ProviderWithCache, manga mangadata.Manga) (metadata.Metadata, bool, error) {
 	return c.SearchByMangaContext(context.Background(), provider, manga)
 }
@@ -109,9 +103,41 @@ func (c *Client) SearchByMangaContext(
 	provider *metadata.ProviderWithCache,
 	manga mangadata.Manga,
 ) (metadata.Metadata, bool, error) {
+	match, found, err := c.MatchMangaContext(ctx, provider, manga)
+	if err != nil || !found {
+		return nil, false, err
+	}
+	if match.Bad() {
+		c.logger.Log("closest metadata for manga %q is a bad match (%q, score %.2f), not using it", manga, match.Metadata, match.Score)
+		return nil, false, nil
+	}
+	return match.Metadata, true, nil
+}
+
+// MatchManga finds the metadata that best matches the manga, even a bad match
+// (metadata.Match.Bad) so it can be shown to the user, never used automatically.
+//
+// Tries to search manga metadata in the following order:
+//
+// 1. If the manga contains non-nil metadata, by its metadata IDs if available (a bound match).
+//
+// 2. If the manga title is bound to a metadata ID (a bound match).
+//
+// 3. The closest search result (metadata.ProviderWithCache.FindClosest) for the manga
+// title, then the alternate titles of its metadata.
+func (c *Client) MatchManga(provider *metadata.ProviderWithCache, manga mangadata.Manga) (metadata.Match, bool, error) {
+	return c.MatchMangaContext(context.Background(), provider, manga)
+}
+
+// MatchMangaContext is MatchManga with a context.
+func (c *Client) MatchMangaContext(
+	ctx context.Context,
+	provider *metadata.ProviderWithCache,
+	manga mangadata.Manga,
+) (metadata.Match, bool, error) {
 	c.logger.Log("searching metadata for manga %q on %q", manga, provider)
 
-	// Try to search by metadata ID if it is available
+	query := metadata.Query{Titles: []string{manga.Info().Title}}
 	if meta := manga.Metadata(); meta != nil {
 		source := provider.Info().Source
 		for _, id := range append([]metadata.ID{meta.ID()}, meta.ExtraIDs()...) {
@@ -120,20 +146,18 @@ func (c *Client) SearchByMangaContext(
 			}
 			found, ok, err := provider.SearchByIDContext(ctx, id.Value())
 			if err != nil {
-				return nil, false, err
+				return metadata.Match{}, false, err
 			}
 			if ok {
-				return found, true, nil
+				return metadata.Match{Metadata: found, Score: 1, Bound: true}, true, nil
 			}
 		}
+
+		query.Titles = append(append(query.Titles, meta.Title()), meta.AlternateTitles()...)
+		query.Year = meta.StartDate().Year
 	}
 
-	// Else try to search by the title, this doesn't ensure
-	// that the found manga metadata is 100% corresponding to
-	// the manga requested, there are some instances in which
-	// the result will be wrong
-	title := manga.Info().Title
-	return provider.FindClosestContext(ctx, title, 3, 3)
+	return provider.FindClosestContext(ctx, query)
 }
 
 // ReadChapter opens the chapter for reading and marks it as read if authorized.

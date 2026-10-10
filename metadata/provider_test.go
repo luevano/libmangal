@@ -3,8 +3,6 @@ package metadata
 import (
 	"context"
 	"errors"
-	"fmt"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -94,48 +92,16 @@ func TestFindClosestKeepsBindingWhenMetadataExpires(t *testing.T) {
 	}
 
 	for range 2 {
-		meta, found, err := p.FindClosestContext(context.Background(), "berserk", 3, 3)
+		match, found, err := p.FindClosestContext(context.Background(), Query{Titles: []string{"berserk"}})
 		if err != nil || !found {
 			t.Fatalf("got found=%t err=%v", found, err)
 		}
-		if meta != bound {
-			t.Fatalf("got %v, want the bound %v", meta, bound)
+		if match.Metadata != bound || !match.Bound || match.Bad() {
+			t.Fatalf("got %+v, want the bound %v", match, bound)
 		}
 	}
 	if len(fake.queries) != 0 {
 		t.Errorf("searched by title %v, want only id lookups", fake.queries)
-	}
-}
-
-func TestFindClosestTrimsRunes(t *testing.T) {
-	fake := &fakeProvider{}
-	p := newTestProvider(t, fake)
-
-	if _, found, err := p.FindClosestContext(context.Background(), "ベルセルク", 3, 3); err != nil || found {
-		t.Fatalf("got found=%t err=%v", found, err)
-	}
-	want := []string{"ベルセルク", "ベル", "ベ"}
-	if len(fake.queries) != len(want) {
-		t.Fatalf("queries %q, want %q", fake.queries, want)
-	}
-	for i, q := range fake.queries {
-		if q != want[i] {
-			t.Errorf("query %d: got %q, want %q", i, q, want[i])
-		}
-	}
-}
-
-func TestFindClosestLogsID(t *testing.T) {
-	berserk := &fakeMeta{id: 7, title: "Berserk"}
-	p := newTestProvider(t, &fakeProvider{byQuery: map[string][]Metadata{"berserk": {berserk}}})
-	var logs []string
-	p.Logger().SetOnLog(func(format string, a ...any) { logs = append(logs, fmt.Sprintf(format, a...)) })
-
-	if _, _, err := p.FindClosestContext(context.Background(), "berserk", 1, 1); err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Contains(logs, `found closest: "Berserk" with id 7`) {
-		t.Errorf("logs %q, want the closest id", logs)
 	}
 }
 
