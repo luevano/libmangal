@@ -2,9 +2,13 @@ package metadata
 
 import (
 	"errors"
+	"fmt"
+	"reflect"
 	"strconv"
+	"sync"
 
 	"github.com/philippgille/gokv"
+	"github.com/philippgille/gokv/util"
 )
 
 const (
@@ -74,3 +78,59 @@ func (s store) getMeta(id int) (manga Metadata, found bool, err error) {
 func (s store) setMeta(id int, manga Metadata) error {
 	return s.set(CacheBucketNameIDToManga, strconv.Itoa(id), &manga)
 }
+
+// memStore is an in-memory gokv.Store that keeps the values themselves instead of
+// encoding them, so interface values (Metadata) come back as their concrete types.
+type memStore struct {
+	mu   *sync.Mutex
+	data map[string]any
+}
+
+func newMemStore() memStore {
+	return memStore{mu: &sync.Mutex{}, data: map[string]any{}}
+}
+
+func (s memStore) Set(k string, v any) error {
+	if err := util.CheckKeyAndValue(k, v); err != nil {
+		return err
+	}
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.Pointer {
+		rv = rv.Elem()
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data[k] = rv.Interface()
+	return nil
+}
+
+func (s memStore) Get(k string, v any) (bool, error) {
+	if err := util.CheckKeyAndValue(k, v); err != nil {
+		return false, err
+	}
+	s.mu.Lock()
+	stored, ok := s.data[k]
+	s.mu.Unlock()
+	if !ok {
+		return false, nil
+	}
+	dst := reflect.ValueOf(v).Elem()
+	src := reflect.ValueOf(stored)
+	if !src.Type().AssignableTo(dst.Type()) {
+		return false, fmt.Errorf("cached %q is a %s, can't load it into a %s", k, src.Type(), dst.Type())
+	}
+	dst.Set(src)
+	return true, nil
+}
+
+func (s memStore) Delete(k string) error {
+	if err := util.CheckKey(k); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.data, k)
+	return nil
+}
+
+func (s memStore) Close() error { return nil }
