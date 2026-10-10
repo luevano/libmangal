@@ -108,7 +108,27 @@ query {
 	}
 }`
 
+// queryListEntry is the authenticated user's list entry of a manga, null if not in the list
+const queryListEntry = `
+query ($id: Int) {
+	Media (id: $id, type: MANGA) {
+		mediaListEntry {
+			progress
+			status
+		}
+	}
+}`
+
+// mutationSaveProgress keeps the entry's status
 const mutationSaveProgress = `
+mutation ($id: Int, $progress: Int) {
+	SaveMediaListEntry (mediaId: $id, progress: $progress) {
+		id
+	}
+}`
+
+// mutationAddProgress adds the manga to the list as being read
+const mutationAddProgress = `
 mutation ($id: Int, $progress: Int) {
 	SaveMediaListEntry (mediaId: $id, progress: $progress, status: CURRENT) {
 		id

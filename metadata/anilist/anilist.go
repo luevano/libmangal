@@ -132,18 +132,26 @@ func (p *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) e
 		return fmt.Errorf("set progress of manga %d: anilist: %w", id, metadata.ErrUnauthorized)
 	}
 
-	body := apiRequestBody{
-		Query: mutationSaveProgress,
-		Variables: map[string]any{
-			"id":       id,
-			"progress": chapterNumber,
-		},
-	}
-	_, err := sendRequest[setProgressData](ctx, p, body)
+	vars := map[string]any{"id": id, "progress": chapterNumber}
+	entry, err := sendRequest[listEntryData](ctx, p, apiRequestBody{Query: queryListEntry, Variables: vars})
 	if err != nil {
-		return fmt.Errorf("set progress of manga %d: %w", id, err)
+		return fmt.Errorf("set progress of manga %d: get list entry: %w", id, err)
 	}
 
+	mutation := mutationAddProgress
+	if entry.Media != nil && entry.Media.MediaListEntry != nil {
+		current := entry.Media.MediaListEntry
+		// reading an older chapter (or rereading) shouldn't lower the progress
+		if current.Progress >= chapterNumber {
+			p.logger.Log("progress of manga %d is already %d (%s), not setting %d", id, current.Progress, current.Status, chapterNumber)
+			return nil
+		}
+		mutation = mutationSaveProgress
+	}
+
+	if _, err := sendRequest[setProgressData](ctx, p, apiRequestBody{Query: mutation, Variables: vars}); err != nil {
+		return fmt.Errorf("set progress of manga %d: %w", id, err)
+	}
 	return nil
 }
 

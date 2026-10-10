@@ -3,6 +3,7 @@ package myanimelist
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -66,5 +67,40 @@ func TestSearch(t *testing.T) {
 	}
 	if len(metas) != 1 || metas[0].Title() != "Berserk" || metas[0].StartDate() != (metadata.Date{Year: 1989, Month: 8}) {
 		t.Errorf("got %v", metas)
+	}
+}
+
+func TestSetMangaProgress(t *testing.T) {
+	tests := []struct {
+		name       string
+		listStatus string
+		chapter    int
+		wantForm   string // "" when no update is expected
+	}{
+		{"not in list", ``, 3, "num_chapters_read=3&status=reading"},
+		{"higher", `,"my_list_status":{"status":"completed","num_chapters_read":10}`, 12, "num_chapters_read=12"},
+		{"lower", `,"my_list_status":{"status":"completed","num_chapters_read":10}`, 5, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var form string
+			m := newTestMAL(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPatch {
+					b, _ := io.ReadAll(r.Body)
+					form = string(b)
+					_, _ = w.Write([]byte(`{}`))
+					return
+				}
+				_, _ = w.Write([]byte(`{"id":7` + tt.listStatus + `}`))
+			})
+			m.token = "token"
+
+			if err := m.SetMangaProgress(context.Background(), 7, tt.chapter); err != nil {
+				t.Fatal(err)
+			}
+			if form != tt.wantForm {
+				t.Errorf("update %q, want %q", form, tt.wantForm)
+			}
+		})
 	}
 }

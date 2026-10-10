@@ -22,6 +22,15 @@ func (m medias) GetAsMetas() []metadata.Metadata {
 	return mangas
 }
 
+type listEntryData struct {
+	Media *struct {
+		MediaListEntry *struct {
+			Progress int    `json:"progress"`
+			Status   string `json:"status"`
+		} `json:"mediaListEntry"`
+	} `json:"media"`
+}
+
 type setProgressData struct {
 	SaveMediaListEntry struct {
 		ID int `json:"id"`

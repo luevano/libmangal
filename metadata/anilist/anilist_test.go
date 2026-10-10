@@ -2,9 +2,11 @@ package anilist
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -122,5 +124,48 @@ func TestSearchByIDNotFound(t *testing.T) {
 	meta, found, err := a.SearchByID(context.Background(), 999999999)
 	if err != nil || found || meta != nil {
 		t.Errorf("got %v found=%t err=%v, want not found", meta, found, err)
+	}
+}
+
+func TestSetMangaProgress(t *testing.T) {
+	tests := []struct {
+		name       string
+		entry      string // mediaListEntry json
+		chapter    int
+		wantStatus bool // mutation sets the status
+		wantSave   bool
+	}{
+		{"not in list", `null`, 3, true, true},
+		{"higher", `{"progress":10,"status":"COMPLETED"}`, 12, false, true},
+		{"lower", `{"progress":10,"status":"COMPLETED"}`, 5, false, false},
+		{"same", `{"progress":10,"status":"CURRENT"}`, 10, false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var mutations []string
+			a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+				var body apiRequestBody
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if strings.Contains(body.Query, "mediaListEntry") {
+					_, _ = w.Write([]byte(`{"data":{"Media":{"mediaListEntry":` + tt.entry + `}}}`))
+					return
+				}
+				mutations = append(mutations, body.Query)
+				_, _ = w.Write([]byte(`{"data":{"SaveMediaListEntry":{"id":1}}}`))
+			})
+			a.token = "token"
+
+			if err := a.SetMangaProgress(context.Background(), 7, tt.chapter); err != nil {
+				t.Fatal(err)
+			}
+			if saved := len(mutations) == 1; saved != tt.wantSave {
+				t.Fatalf("saved %t, want %t", saved, tt.wantSave)
+			}
+			if tt.wantSave {
+				if setsStatus := strings.Contains(mutations[0], "status:"); setsStatus != tt.wantStatus {
+					t.Errorf("mutation sets the status %t, want %t", setsStatus, tt.wantStatus)
+				}
+			}
+		})
 	}
 }

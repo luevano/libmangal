@@ -136,13 +136,32 @@ func (p *MyAnimeList) SetMangaProgress(ctx context.Context, id, chapterNumber in
 		return fmt.Errorf("set progress of manga %d: mal: %w", id, metadata.ErrUnauthorized)
 	}
 
+	var manga struct {
+		ListStatus *ReadStatus `json:"my_list_status"`
+	}
+	fields := url.Values{"fields": {"my_list_status"}}
+	if err := p.request(ctx, http.MethodGet, "manga/"+strconv.Itoa(id), fields, p.commonMangaReqHeaders(), nil, &manga); err != nil {
+		return fmt.Errorf("set progress of manga %d: get list status: %w", id, err)
+	}
+
+	params := url.Values{}
+	params.Set("num_chapters_read", strconv.Itoa(chapterNumber))
+	if current := manga.ListStatus; current != nil {
+		// reading an older chapter (or rereading) shouldn't lower the progress
+		if current.NumChaptersRead >= chapterNumber {
+			p.logger.Log("progress of manga %d is already %d (%s), not setting %d", id, current.NumChaptersRead, current.Status, chapterNumber)
+			return nil
+		}
+	} else {
+		// not in the list yet, the status is kept otherwise
+		params.Set("status", "reading")
+	}
+
 	path := fmt.Sprintf("manga/%d/my_list_status", id)
 
 	headers := http.Header{}
 	headers.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	params := url.Values{}
-	params.Set("num_chapters_read", strconv.Itoa(chapterNumber))
 	body := strings.NewReader(params.Encode())
 
 	// currently the read status is not used/needed
