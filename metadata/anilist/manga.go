@@ -149,7 +149,7 @@ func (m *Manga) Banner() string {
 func (m *Manga) Tags() []string {
 	tags := make([]string, 0)
 	for _, tag := range m.TagList {
-		// TODO: decide on a ranking treshold or make it configurable
+		// TODO: make the rank threshold configurable
 		if tag.Rank < 60 {
 			continue
 		}

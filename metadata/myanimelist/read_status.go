@@ -1,7 +1,5 @@
 package myanimelist
 
-// TODO: change field types from string to date/date-time
-//
 // ReadStatus represents the MyAnimeList manga list read status.
 type ReadStatus struct {
 	Status          string   `json:"status,omitempty" jsonschema:"enum=reading,enum=completed,enum=on_hold,enum=dropped,enum=plan_to_read"`

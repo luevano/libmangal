@@ -140,8 +140,6 @@ func DefaultDownloadOptions() DownloadOptions {
 
 // ClientOptions is options that client would use during its runtime.
 type ClientOptions struct {
-	// TODO: move HTTPClient (and UserAgent) out of the options?
-	//
 	// HTTPClient is http client that client would use for requests.
 	HTTPClient *http.Client
 

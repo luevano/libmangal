@@ -42,7 +42,6 @@ var userFields = strings.Join([]string{
 	"birthday",
 	"location",
 	"joined_at",
-	"anime_statistics",
 	"time_zone",
 	"is_supporter",
 }, ",")

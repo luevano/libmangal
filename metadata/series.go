@@ -22,8 +22,7 @@ func monthYear(d Date) string {
 
 func ToSeriesJSON(m Metadata) SeriesJSON {
 	var status string
-	// TODO: need to better handle these statuses,
-	// series.json only supports "ended" and "continuing"
+	// TODO: series.json only has "Ended" and "Continuing", map hiatus and cancelled
 	switch m.Status() {
 	case StatusFinished:
 		status = "Ended"
@@ -42,7 +41,7 @@ func ToSeriesJSON(m Metadata) SeriesJSON {
 	}
 	publicationRun := monthYear(m.StartDate()) + " - " + pubEndDate
 
-	// TODO: clean the description at least for one of the fields?
+	// TODO: strip the html (e.g. AniList's <br>) from DescriptionText
 	return SeriesJSON{
 		Type:                 "comicSeries",
 		Name:                 m.Title(),
@@ -78,12 +77,9 @@ type SeriesJSON struct {
 	PublicationRun       string `json:"publication_run"`
 }
 
-// TODO: need to decide if HTML escaping should be disabled
 func (s SeriesJSON) Marshal() ([]byte, error) {
-	// return json.MarshalIndent(s, "", "  ")
 	buffer := &bytes.Buffer{}
 	enc := json.NewEncoder(buffer)
-	enc.SetEscapeHTML(true)
 	enc.SetIndent("", "  ")
 	err := enc.Encode(s.wrapper())
 

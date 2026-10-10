@@ -30,8 +30,7 @@ func ToComicInfoXML(m Metadata, chapter Chapter) ComicInfoXML {
 		translators = []string{chapter.ScanlationGroup}
 	}
 
-	// TODO: fill missing
-	// TODO: use scanlation group for ScanInformation
+	// TODO: fill Volume, LanguageISO, AgeRating and ScanInformation (scanlation group)
 	return ComicInfoXML{
 		Title:           chapter.Title,
 		Series:          m.Title(),
@@ -177,7 +176,7 @@ func (c *ComicInfoXML) Marshal(options ComicInfoXMLOptions) ([]byte, error) {
 }
 
 func (c *ComicInfoXML) wrapper(options ComicInfoXMLOptions) comicInfoXMLWrapper {
-	// TODO: Make Manga field configurable
+	// TODO: "Yes" (left to right) for manhwa/manhua, or make it configurable
 	wrapper := comicInfoXMLWrapper{
 		XmlnsXsd:   "http://www.w3.org/2001/XMLSchema",
 		XmlnsXsi:   "http://www.w3.org/2001/XMLSchema-instance",

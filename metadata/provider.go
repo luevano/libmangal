@@ -218,8 +218,6 @@ func (p *ProviderWithCache) SearchByIDContext(ctx context.Context, id int) (Meta
 	return meta, true, nil
 }
 
-// TODO: implement cache for title (get single id by title if existent)?
-//
 // Search for metadata with the given query.
 //
 // Implementation should only handle the request and marshaling.
