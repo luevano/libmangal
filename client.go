@@ -2,6 +2,7 @@ package libmangal
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/mangadata"
@@ -30,6 +31,9 @@ func NewClient(
 	loader ProviderLoader,
 	options ClientOptions,
 ) (*Client, error) {
+	if err := options.validate(); err != nil {
+		return nil, fmt.Errorf("invalid client options: %w", err)
+	}
 	providerInfo := loader.Info()
 
 	if err := providerInfo.Validate(); err != nil {

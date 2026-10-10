@@ -2,7 +2,6 @@ package myanimelist
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -42,7 +41,10 @@ type MyAnimeList struct {
 // NewMAL constructs new MyAnimeList client.
 func NewMAL(options Options) (*MyAnimeList, error) {
 	if options.ClientID == "" {
-		return nil, errors.New("MAL ClientID must not be empty")
+		return nil, Error("invalid options: empty ClientID")
+	}
+	if options.HTTPClient == nil {
+		return nil, Error("invalid options: nil HTTPClient")
 	}
 
 	// ensure the used logger is not nil

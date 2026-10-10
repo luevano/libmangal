@@ -1,6 +1,7 @@
 package libmangal
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -102,8 +103,15 @@ type DownloadOptions struct {
 
 	// ImageTransformer is applied for each image for the chapter.
 	//
-	// E.g. grayscale effect.
+	// E.g. grayscale effect. Nil leaves the images as they are.
 	ImageTransformer func([]byte) ([]byte, error)
+}
+
+func (o DownloadOptions) validate() error {
+	if !o.Format.IsAFormat() {
+		return fmt.Errorf("unknown format %d", o.Format)
+	}
+	return nil
 }
 
 // DefaultDownloadOptions constructs default DownloadOptions.
@@ -176,6 +184,18 @@ type ClientOptions struct {
 		provider ProviderInfo,
 		chapter mangadata.Chapter,
 	) string
+}
+
+func (o ClientOptions) validate() error {
+	switch {
+	case o.HTTPClient == nil:
+		return errors.New("nil HTTPClient")
+	case o.FS == nil:
+		return errors.New("nil FS")
+	case o.ProviderName == nil, o.MangaName == nil, o.VolumeName == nil, o.ChapterName == nil:
+		return errors.New("nil ProviderName, MangaName, VolumeName or ChapterName")
+	}
+	return nil
 }
 
 // DefaultClientOptions constructs default ClientOptions, with default Anilist options as well.

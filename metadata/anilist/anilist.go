@@ -35,6 +35,9 @@ type Anilist struct {
 
 // NewAnilist constructs new Anilist client.
 func NewAnilist(options Options) (*Anilist, error) {
+	if options.HTTPClient == nil {
+		return nil, Error("invalid options: nil HTTPClient")
+	}
 	// ensure the used logger is not nil
 	l := options.Logger
 	if l == nil {

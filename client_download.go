@@ -20,6 +20,9 @@ func (c *Client) DownloadChapter(
 	chapter mangadata.Chapter,
 	options DownloadOptions,
 ) (*metadata.DownloadedChapter, error) {
+	if err := options.validate(); err != nil {
+		return nil, fmt.Errorf("invalid download options: %w", err)
+	}
 	if reason := chapter.Info().Unavailable; reason != "" {
 		return nil, fmt.Errorf("unavailable: %s", reason)
 	}
@@ -244,6 +247,9 @@ func (c *Client) downloadChapter(
 		default:
 		}
 
+		if options.ImageTransformer == nil {
+			break
+		}
 		image, err := options.ImageTransformer(page.Image())
 		if err != nil {
 			return "", err
@@ -343,8 +349,7 @@ func (c *Client) downloadChapter(
 
 		return ciXmlStatusSkip, nil
 	default:
-		// format validation was done before
-		panic("unreachable")
+		return "", fmt.Errorf("unknown format %d", options.Format)
 	}
 }
 

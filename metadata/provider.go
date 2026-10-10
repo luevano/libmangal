@@ -134,6 +134,9 @@ func NewProviderWithCache(options ProviderWithCacheOptions) (*ProviderWithCache,
 	if options.Provider == nil {
 		return nil, Error("nil Provider passed to ProviderWithCache")
 	}
+	if options.CacheStore == nil {
+		return nil, Error("nil CacheStore passed to ProviderWithCache")
+	}
 
 	s := store{
 		openStore: func(bucketName string) (gokv.Store, error) {
