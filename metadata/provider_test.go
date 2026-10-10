@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"testing"
+
+	"github.com/philippgille/gokv"
 )
 
 func newTestProvider(t *testing.T, p *fakeProvider) *ProviderWithCache {
@@ -57,5 +59,46 @@ func TestDefaultCacheStoreCaches(t *testing.T) {
 	}
 	if len(fake.idCalls) != 0 {
 		t.Errorf("provider got %d id lookups, want 0", len(fake.idCalls))
+	}
+}
+
+func TestFindClosestKeepsBindingWhenMetadataExpires(t *testing.T) {
+	bound := &fakeMeta{id: 42, title: "Berserk of Gluttony"}
+	first := &fakeMeta{id: 7, title: "Berserk"}
+	fake := &fakeProvider{
+		byID:    map[int]Metadata{42: bound, 7: first},
+		byQuery: map[string][]Metadata{"berserk": {first, bound}},
+	}
+
+	// title bindings never expire, cached metadata does: a store with no metadata
+	titles := newMemStore()
+	options := ProviderWithCacheOptions{
+		Provider: fake,
+		CacheStore: func(_, bucketName string) (gokv.Store, error) {
+			if bucketName == CacheBucketNameTitleToID {
+				return titles, nil
+			}
+			return newMemStore(), nil
+		},
+	}
+	p, err := NewProviderWithCache(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.BindTitleWithID("berserk", 42); err != nil {
+		t.Fatal(err)
+	}
+
+	for range 2 {
+		meta, found, err := p.FindClosest(context.Background(), "berserk", 3, 3)
+		if err != nil || !found {
+			t.Fatalf("got found=%t err=%v", found, err)
+		}
+		if meta != bound {
+			t.Fatalf("got %v, want the bound %v", meta, bound)
+		}
+	}
+	if len(fake.queries) != 0 {
+		t.Errorf("searched by title %v, want only id lookups", fake.queries)
 	}
 }

@@ -269,14 +269,15 @@ func (p *ProviderWithCache) FindClosest(ctx context.Context, title string, tries
 		return nil, false, Error(err.Error())
 	}
 	if found {
-		meta, found, err := p.store.getMeta(id)
+		// the title may be bound by the user, so look the id up even if its metadata expired
+		meta, found, err := p.SearchByID(ctx, id)
 		if err != nil {
-			return nil, false, Error(err.Error())
+			return nil, false, err
 		}
-
 		if found {
 			return meta, true, nil
 		}
+		p.logger.Log("id %d bound to title %q not found, searching by title", id, title)
 	}
 
 	meta, ok, err := p.findClosest(ctx, title, tries, steps)
