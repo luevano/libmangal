@@ -39,3 +39,28 @@ func TestDownloadFailedCoverIsNotWritten(t *testing.T) {
 		t.Errorf("%s exists after a failed download (err %v)", cover, err)
 	}
 }
+
+func TestDownloadChapterStatus(t *testing.T) {
+	c, options := newDownloadTest(t)
+	options.SkipIfExists = false
+	chapter := newFakeChapter(validMeta(), 2)
+
+	for _, want := range []metadata.DownloadStatus{metadata.DownloadStatusNew, metadata.DownloadStatusOverwritten} {
+		down, err := c.DownloadChapter(context.Background(), chapter, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if down.ChapterStatus != want {
+			t.Errorf("chapter status %q, want %q", down.ChapterStatus, want)
+		}
+	}
+
+	options.SkipIfExists = true
+	down, err := c.DownloadChapter(context.Background(), chapter, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if down.ChapterStatus != metadata.DownloadStatusExists {
+		t.Errorf("chapter status %q, want %q", down.ChapterStatus, metadata.DownloadStatusExists)
+	}
+}

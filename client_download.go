@@ -135,7 +135,7 @@ func (c *Client) downloadChapterWithMetadata(
 		downChap.ComicInfoXMLStatus = ciXmlStatus
 
 		downChap.ChapterStatus = metadata.DownloadStatusNew
-		if !options.SkipIfExists {
+		if chapterExists {
 			downChap.ChapterStatus = metadata.DownloadStatusOverwritten
 		}
 	}
