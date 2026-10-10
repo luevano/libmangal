@@ -3,6 +3,7 @@ package libmangal
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -59,7 +60,11 @@ func (c *Client) DownloadChapterContext(
 	}
 	tmpClient.options.FS = afero.NewMemMapFs()
 
-	downChap, err := tmpClient.downloadChapterWithMetadata(ctx, chapter, options, func(path string) (bool, error) {
+	dirs, err := c.chapterDirs(chapter, options)
+	if err != nil {
+		return nil, err
+	}
+	downChap, err := tmpClient.downloadChapterWithMetadata(ctx, chapter, options, dirs, func(path string) (bool, error) {
 		return afero.Exists(c.options.FS, path)
 	})
 	if err != nil {
@@ -73,6 +78,9 @@ func (c *Client) DownloadChapterContext(
 	); err != nil {
 		return nil, fmt.Errorf("move to %s: %w", options.Directory, err)
 	}
+	if dirs.manga != "" {
+		c.mangaDirs.remember(dirs.parent, filepath.Base(dirs.manga), newMangaDirInfo(c.Info(), manga))
+	}
 
 	return downChap, nil
 }
@@ -84,34 +92,26 @@ func (c *Client) downloadChapterWithMetadata(
 	ctx context.Context,
 	chapter mangadata.Chapter,
 	options DownloadOptions,
+	dirs chapterDirs,
 	existsFunc func(string) (bool, error),
 ) (*metadata.DownloadedChapter, error) {
-	directory := options.Directory
-
-	var (
-		seriesJSONDir = directory
-		coverDir      = directory
-		bannerDir     = directory
-	)
-
-	if options.CreateProviderDir {
-		directory = filepath.Join(directory, c.ProviderName(c.provider.Info()))
-	}
-
-	if options.CreateMangaDir {
-		directory = filepath.Join(directory, c.MangaName(chapter.Volume().Manga()))
-		seriesJSONDir = directory
-		coverDir = directory
-		bannerDir = directory
-	}
-
-	if options.CreateVolumeDir {
-		directory = filepath.Join(directory, c.VolumeName(chapter.Volume()))
-	}
+	directory := dirs.chapter
+	seriesJSONDir, coverDir, bannerDir := dirs.meta, dirs.meta, dirs.meta
 
 	err := c.options.FS.MkdirAll(directory, c.options.ModeDir)
 	if err != nil {
 		return nil, err
+	}
+
+	manga := chapter.Volume().Manga()
+	if dirs.manga != "" {
+		info, err := json.MarshalIndent(newMangaDirInfo(c.Info(), manga), "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", FilenameMangaDirInfo, err)
+		}
+		if err := afero.WriteFile(c.options.FS, filepath.Join(dirs.manga, FilenameMangaDirInfo), info, c.options.ModeFile); err != nil {
+			return nil, err
+		}
 	}
 
 	chapterFilename := c.ChapterName(chapter, options.Format)
@@ -122,7 +122,6 @@ func (c *Client) downloadChapterWithMetadata(
 		return nil, err
 	}
 
-	manga := chapter.Volume().Manga()
 	// Data about downloaded chapter
 	downChap := &metadata.DownloadedChapter{
 		Number:             chapter.Info().Number,

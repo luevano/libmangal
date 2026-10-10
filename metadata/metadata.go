@@ -71,17 +71,17 @@ type ID struct {
 	// Raw id of the manga in the provider.
 	// Must be non-empty unless IDSource is IDSourceProvider.
 	// Must be an integer unless IDSource is IDSourceAnimePlanet.
-	Raw string
+	Raw string `json:"raw"`
 
 	// Source of the metadata.
 	// Must be non-zero.
-	Source IDSource
+	Source IDSource `json:"source"`
 
 	// Code of the metadata provider.
 	// Must be non-empty.
 	//
 	// For the Provider metadata, the code must be short, ideally 2-3 chars.
-	Code IDCode
+	Code IDCode `json:"code"`
 }
 
 // Value is the integer value of the ID.

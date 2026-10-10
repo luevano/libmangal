@@ -54,6 +54,11 @@ type DownloadOptions struct {
 	// CreateMangaDir will create manga directory.
 	CreateMangaDir bool
 
+	// ReuseMangaDir will download into the directory that already has the manga (see
+	// MangaDirInfo) instead of a new one when the manga directory name changes (title
+	// updates, renamed providers, name template changes). Needs CreateMangaDir.
+	ReuseMangaDir bool
+
 	// CreateVolumeDir will create volume directory.
 	//
 	// If CreateMangaDir is also true, volume directory
@@ -122,6 +127,7 @@ func DefaultDownloadOptions() DownloadOptions {
 		Directory:               ".",
 		CreateProviderDir:       false,
 		CreateMangaDir:          true,
+		ReuseMangaDir:           true,
 		CreateVolumeDir:         false,
 		Strict:                  true,
 		SkipIfExists:            true,

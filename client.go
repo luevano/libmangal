@@ -20,6 +20,7 @@ type Client struct {
 	metaOrder []metadata.IDSource
 	options   ClientOptions
 	logger    *logger.Logger
+	mangaDirs mangaDirIndex
 }
 
 // NewClient creates a new client from given ProviderLoader.
