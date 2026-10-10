@@ -277,7 +277,7 @@ func (c *Client) downloadChapter(
 	var buf bytes.Buffer
 	switch options.Format {
 	case FormatPDF:
-		err = c.savePDF(downloadedPages, &buf)
+		err = c.savePDF(ctx, downloadedPages, &buf)
 	case FormatTAR:
 		err = c.saveTAR(downloadedPages, &buf)
 	case FormatTARGZ:

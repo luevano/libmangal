@@ -102,10 +102,10 @@ func TestSavePDF(t *testing.T) {
 	c := &Client{options: DefaultClientOptions(), logger: newTestLogger()}
 
 	var out bytes.Buffer
-	if err := c.savePDF(pages, &out); err != nil {
+	if err := c.savePDF(context.Background(), pages, &out); err != nil {
 		t.Fatal(err)
 	}
-	n, err := api.PageCount(bytes.NewReader(out.Bytes()), nil)
+	n, err := api.PageCount(context.Background(), bytes.NewReader(out.Bytes()), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

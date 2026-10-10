@@ -71,6 +71,7 @@ func (c *Client) getComicInfoXML(
 
 // savePDF saves pages in FormatPDF
 func (c *Client) savePDF(
+	ctx context.Context,
 	pages []mangadata.PageWithImage,
 	out io.Writer,
 ) error {
@@ -82,7 +83,7 @@ func (c *Client) savePDF(
 		images[i] = bytes.NewReader(page.Image())
 	}
 
-	return api.ImportImages(nil, out, images, nil, nil)
+	return api.ImportImages(ctx, nil, out, images, nil, nil)
 }
 
 // saveCBZ saves pages in FormatCBZ
