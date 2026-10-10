@@ -79,7 +79,9 @@ func (c *Client) DownloadChapterContext(
 		return nil, fmt.Errorf("move to %s: %w", options.Directory, err)
 	}
 	if dirs.manga != "" {
-		c.mangaDirs.remember(dirs.parent, filepath.Base(dirs.manga), newMangaDirInfo(c.Info(), manga))
+		if err := c.rememberMangaDir(dirs.parent, filepath.Base(dirs.manga), newMangaDirInfo(c.Info(), manga)); err != nil {
+			return nil, fmt.Errorf("remember the directory of manga %q: %w", manga, err)
+		}
 	}
 
 	return downChap, nil

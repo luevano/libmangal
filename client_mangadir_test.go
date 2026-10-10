@@ -138,3 +138,73 @@ func TestReuseOldProviderDir(t *testing.T) {
 		t.Errorf("got %q without reusing", dir)
 	}
 }
+
+type memIndex struct {
+	dirs map[string]MangaDirInfo // parent/name -> info
+}
+
+func (m *memIndex) FindMangaDir(parent string, provider ProviderInfo, info MangaDirInfo) (string, bool, error) {
+	best, name := MangaDirNoMatch, ""
+	for path, have := range m.dirs {
+		if filepath.Dir(path) != parent {
+			continue
+		}
+		if match := MatchMangaDir(provider, info, have); match > best {
+			best, name = match, filepath.Base(path)
+		}
+	}
+	return name, best != MangaDirNoMatch, nil
+}
+
+func (m *memIndex) RememberMangaDir(parent, name string, info MangaDirInfo) error {
+	m.dirs[filepath.Join(parent, name)] = info
+	return nil
+}
+
+func TestMangaDirIndex(t *testing.T) {
+	fake := ProviderInfo{ID: "fake", Name: "Fake", Version: "0.1.0"}
+	index := &memIndex{dirs: map[string]MangaDirInfo{}}
+	newClient := func(name string) *Client {
+		options := DefaultClientOptions()
+		options.MangaName = func(ProviderInfo, mangadata.Manga) string { return name }
+		options.MangaDirIndex = index
+		c, err := NewClientContext(context.Background(), fakeLoader{&infoProvider{fakeProvider: &fakeProvider{}, info: fake}}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	options := DefaultDownloadOptions()
+	options.Directory = t.TempDir()
+	options.SearchMetadata = false
+	chapter := newFakeChapter(validMeta(), 1)
+
+	// a download is remembered
+	if _, err := newClient("Old").DownloadChapterContext(context.Background(), chapter, options); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := index.dirs[filepath.Join(options.Directory, "Old")]; !ok {
+		t.Fatalf("not remembered: %v", index.dirs)
+	}
+
+	// the index is used without the marker
+	if err := os.Remove(filepath.Join(options.Directory, "Old", FilenameMangaDirInfo)); err != nil {
+		t.Fatal(err)
+	}
+	if dir, _ := newClient("New").ChapterDir(chapter, options); dir != filepath.Join(options.Directory, "Old") {
+		t.Errorf("got %q, want the indexed directory", dir)
+	}
+
+	// a stale entry falls back to the markers, which seed the index
+	index.dirs = map[string]MangaDirInfo{filepath.Join(options.Directory, "Gone"): newMangaDirInfo(fake, chapter.volume.manga)}
+	if _, err := newClient("Marked").DownloadChapterContext(context.Background(), chapter, options); err != nil {
+		t.Fatal(err)
+	}
+	index.dirs = map[string]MangaDirInfo{filepath.Join(options.Directory, "Gone"): newMangaDirInfo(fake, chapter.volume.manga)}
+	if dir, _ := newClient("Other").ChapterDir(chapter, options); dir != filepath.Join(options.Directory, "Marked") {
+		t.Errorf("got %q, want the marked directory", dir)
+	}
+	if _, ok := index.dirs[filepath.Join(options.Directory, "Marked")]; !ok {
+		t.Errorf("marker match not added to the index: %v", index.dirs)
+	}
+}

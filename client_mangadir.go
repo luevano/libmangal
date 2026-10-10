@@ -46,6 +46,42 @@ func newMangaDirInfo(provider ProviderInfo, manga mangadata.Manga) MangaDirInfo 
 	return info
 }
 
+// MangaDirIndex is an index of the downloaded mangas' directories kept by the application
+// (e.g. in a database), asked before scanning the MangaDirInfo files. See ClientOptions.MangaDirIndex.
+type MangaDirIndex interface {
+	// FindMangaDir returns the name of the directory under parent with the manga,
+	// matching like MatchMangaDir.
+	FindMangaDir(parent string, provider ProviderInfo, info MangaDirInfo) (name string, found bool, err error)
+
+	// RememberMangaDir records the manga of the directory parent/name.
+	RememberMangaDir(parent, name string, info MangaDirInfo) error
+}
+
+// Manga directory matches, from MatchMangaDir.
+const (
+	MangaDirNoMatch = iota
+	// MangaDirMetadataMatch shares a metadata id (e.g. the same Anilist manga from another provider).
+	MangaDirMetadataMatch
+	// MangaDirMangaMatch is the same provider (current or old id) and manga id.
+	MangaDirMangaMatch
+)
+
+// MatchMangaDir says how well the info of a directory (have) matches the wanted manga,
+// downloaded with the provider. Higher is better.
+func MatchMangaDir(provider ProviderInfo, want, have MangaDirInfo) int {
+	if provider.Matches(have.Provider) && have.Manga.ID == want.Manga.ID {
+		return MangaDirMangaMatch
+	}
+	for _, id := range want.MetadataIDs {
+		if slices.ContainsFunc(have.MetadataIDs, func(other metadata.ID) bool {
+			return other.Source == id.Source && other.Raw == id.Raw
+		}) {
+			return MangaDirMetadataMatch
+		}
+	}
+	return MangaDirNoMatch
+}
+
 // ReadMangaDirInfo reads the MangaDirInfo of a manga directory.
 func ReadMangaDirInfo(fsys afero.Fs, dir string) (MangaDirInfo, error) {
 	var info MangaDirInfo
@@ -107,21 +143,13 @@ func (idx *mangaDirIndex) find(fsys afero.Fs, parent string, provider ProviderIn
 	if err != nil {
 		return "", false, err
 	}
+	best, name := MangaDirNoMatch, ""
 	for _, d := range dirs {
-		if provider.Matches(d.info.Provider) && d.info.Manga.ID == info.Manga.ID {
-			return d.name, true, nil
+		if match := MatchMangaDir(provider, info, d.info); match > best {
+			best, name = match, d.name
 		}
 	}
-	for _, d := range dirs {
-		for _, id := range info.MetadataIDs {
-			if slices.ContainsFunc(d.info.MetadataIDs, func(other metadata.ID) bool {
-				return other.Source == id.Source && other.Raw == id.Raw
-			}) {
-				return d.name, true, nil
-			}
-		}
-	}
-	return "", false, nil
+	return name, best != MangaDirNoMatch, nil
 }
 
 func (idx *mangaDirIndex) remember(parent, name string, info MangaDirInfo) {
@@ -168,7 +196,7 @@ func (c *Client) chapterDirs(chapter mangadata.Chapter, options DownloadOptions)
 		manga := chapter.Volume().Manga()
 		name := c.MangaName(manga)
 		if options.ReuseMangaDir {
-			found, ok, err := c.mangaDirs.find(c.options.FS, dirs.parent, c.Info(), newMangaDirInfo(c.Info(), manga))
+			found, ok, err := c.findMangaDir(dirs.parent, newMangaDirInfo(c.Info(), manga))
 			if err != nil {
 				return dirs, fmt.Errorf("find the directory of manga %q: %w", manga, err)
 			}
@@ -217,4 +245,48 @@ func (c *Client) providerDirName(options DownloadOptions) (string, error) {
 		}
 	}
 	return name, nil
+}
+
+// findMangaDir asks the index (ClientOptions.MangaDirIndex) first, then scans the
+// MangaDirInfo files; what the scan finds is added to the index.
+func (c *Client) findMangaDir(parent string, info MangaDirInfo) (string, bool, error) {
+	index := c.options.MangaDirIndex
+	if index != nil {
+		name, ok, err := index.FindMangaDir(parent, c.Info(), info)
+		if err != nil {
+			return "", false, fmt.Errorf("index: %w", err)
+		}
+		if ok {
+			// the directory may have been moved or deleted since
+			exists, err := afero.DirExists(c.options.FS, filepath.Join(parent, name))
+			if err != nil || exists {
+				return name, exists, err
+			}
+		}
+	}
+
+	name, ok, err := c.mangaDirs.find(c.options.FS, parent, c.Info(), info)
+	if err != nil || !ok || index == nil {
+		return name, ok, err
+	}
+	have, err := ReadMangaDirInfo(c.options.FS, filepath.Join(parent, name))
+	if err != nil {
+		return name, ok, err
+	}
+	if err := index.RememberMangaDir(parent, name, have); err != nil {
+		return name, ok, fmt.Errorf("index: %w", err)
+	}
+	return name, ok, nil
+}
+
+// rememberMangaDir records a downloaded manga directory in the index and the scan cache.
+func (c *Client) rememberMangaDir(parent, name string, info MangaDirInfo) error {
+	c.mangaDirs.remember(parent, name, info)
+	if c.options.MangaDirIndex == nil {
+		return nil
+	}
+	if err := c.options.MangaDirIndex.RememberMangaDir(parent, name, info); err != nil {
+		return fmt.Errorf("index: %w", err)
+	}
+	return nil
 }

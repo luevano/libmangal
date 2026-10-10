@@ -161,6 +161,10 @@ type ClientOptions struct {
 	// ModeFile is the permission bits used for all files created.
 	ModeFile fs.FileMode
 
+	// MangaDirIndex is asked for the directory of a manga before scanning the MangaDirInfo
+	// files (DownloadOptions.ReuseMangaDir). Optional.
+	MangaDirIndex MangaDirIndex
+
 	// ConcurrentPages is how many pages of a chapter are downloaded at the same time.
 	// Zero or less means no limit.
 	ConcurrentPages int
