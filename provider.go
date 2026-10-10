@@ -32,11 +32,71 @@ type ProviderInfo struct {
 
 	// Website of the provider. May be empty.
 	Website string `json:"website"`
+
+	// History of previous ids, names and websites, newest first. May be empty.
+	//
+	// Sites move or get renamed; the current ID, Name and Website are the ones to use,
+	// every entry here is deprecated. An entry may keep the current ID when only the
+	// name or website changed.
+	History []ProviderAlias `json:"history,omitempty"`
+}
+
+// ProviderAlias is a previous identity of a provider.
+type ProviderAlias struct {
+	// ID the provider had. Non-empty.
+	ID string `json:"id"`
+
+	// Name the provider had. May be empty if only the ID changed.
+	Name string `json:"name,omitempty"`
+
+	// Website the provider had. May be empty.
+	Website string `json:"website,omitempty"`
+}
+
+// Matches reports whether id is the provider's current ID or one in its History.
+func (p ProviderInfo) Matches(id string) bool {
+	if id == p.ID {
+		return true
+	}
+	_, ok := p.Alias(id)
+	return ok
+}
+
+// Alias returns the newest History entry with the given old id, false if the id
+// is the current one or unknown.
+func (p ProviderInfo) Alias(id string) (ProviderAlias, bool) {
+	if id == p.ID {
+		return ProviderAlias{}, false
+	}
+	for _, alias := range p.History {
+		if alias.ID == id {
+			return alias, true
+		}
+	}
+	return ProviderAlias{}, false
+}
+
+// FindLoader finds the loader of the provider with the given id, current or old.
+//
+// Current ids win over old ones (a new provider may reuse an old id). If the id is an
+// old one, the matching History entry is returned too, so callers can warn about it.
+func FindLoader(loaders []ProviderLoader, id string) (ProviderLoader, *ProviderAlias, bool) {
+	for _, loader := range loaders {
+		if loader.Info().ID == id {
+			return loader, nil, true
+		}
+	}
+	for _, loader := range loaders {
+		if alias, ok := loader.Info().Alias(id); ok {
+			return loader, &alias, true
+		}
+	}
+	return nil, nil, false
 }
 
 // Validate checks if the ProviderInfo is valid.
-// This means that ID and Name are non-empty
-// and Version is a valid semver.
+// This means that ID and Name are non-empty, Version is a valid semver
+// and every History entry has an ID.
 func (p ProviderInfo) Validate() error {
 	if p.ID == "" {
 		return errors.New("empty id")
@@ -51,6 +111,12 @@ func (p ProviderInfo) Validate() error {
 	// however, for some bizarre reason, Go semver package requires this prefix.
 	if !semver.IsValid("v" + p.Version) {
 		return fmt.Errorf("invalid semver %q", p.Version)
+	}
+
+	for i, alias := range p.History {
+		if alias.ID == "" {
+			return fmt.Errorf("history entry %d: empty id", i)
+		}
 	}
 
 	return nil
