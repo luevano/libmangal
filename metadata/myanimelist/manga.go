@@ -3,7 +3,6 @@ package myanimelist
 import (
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/luevano/libmangal/metadata"
 )
@@ -18,6 +17,8 @@ const (
 	StatusFinished            Status = "finished"
 	StatusCurrentlyPublishing Status = "currently_publishing"
 	StatusNotYetPublished     Status = "not_yet_published"
+	StatusOnHiatus            Status = "on_hiatus"
+	StatusDiscontinued        Status = "discontinued"
 )
 
 // Manga is a metadata.Metadata implementation
@@ -62,26 +63,21 @@ type Manga struct {
 
 type date string
 
+// toMetadataDate parses "YYYY", "YYYY-MM" or "YYYY-MM-DD", unknown parts are left as zero.
+//
 // From: https://myanimelist.net/apiconfig/references/api/v2#section/Common-formats
 func (d date) toMetadataDate() metadata.Date {
-	var parsed time.Time
-	switch {
-	// Year only
-	case len(d) == 4:
-		parsed, _ = time.Parse("2006", string(d))
-	// Year and month
-	case len(d) == 7:
-		parsed, _ = time.Parse("2006-01", string(d))
-	// Should be normal
-	default:
-		parsed, _ = time.Parse("2006-01-02", string(d))
+	var parsed metadata.Date
+	parts := strings.SplitN(string(d), "-", 3)
+	fields := []*int{&parsed.Year, &parsed.Month, &parsed.Day}
+	for i, part := range parts {
+		n, err := strconv.Atoi(part)
+		if err != nil {
+			break
+		}
+		*fields[i] = n
 	}
-
-	return metadata.Date{
-		Year:  parsed.Year(),
-		Month: int(parsed.Month()),
-		Day:   parsed.Day(),
-	}
+	return parsed
 }
 
 type authorListNode struct {
@@ -90,21 +86,10 @@ type authorListNode struct {
 	LastName  string `json:"last_name"`
 }
 
+// name is "First Last", without a comma since ComicInfo.xml lists are comma separated.
+// Either name can be empty.
 func (a authorListNode) name() string {
-	var name string
-	// sometimes first name field is empty
-	if fn := a.FirstName; fn != "" {
-		name += fn
-	}
-	// but there is a last name
-	if ln := a.LastName; ln != "" {
-		// if it didn't contain a first name, don't add the comma
-		if a.FirstName != "" {
-			name += ", "
-		}
-		name += ln
-	}
-	return name
+	return strings.TrimSpace(a.FirstName + " " + a.LastName)
 }
 
 // String is the short representation of the manga.
@@ -276,6 +261,10 @@ func (m *Manga) Status() metadata.Status {
 		return metadata.StatusReleasing
 	case StatusNotYetPublished:
 		return metadata.StatusNotYetReleased
+	case StatusOnHiatus:
+		return metadata.StatusHiatus
+	case StatusDiscontinued:
+		return metadata.StatusCancelled
 	default:
 		// assume that if it is unknown it hasn't been released...
 		return metadata.StatusNotYetReleased
