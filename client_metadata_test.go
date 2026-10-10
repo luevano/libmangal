@@ -2,6 +2,7 @@ package libmangal
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/luevano/libmangal/metadata"
@@ -46,5 +47,41 @@ func TestSearchByMangaUsesMetadataID(t *testing.T) {
 	}
 	if len(ani.queries) != 0 {
 		t.Errorf("searched by title %q, want an id lookup", ani.queries)
+	}
+}
+
+func TestSearchMetadataOrder(t *testing.T) {
+	ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(1, "From AniList")}}}
+	mal := &fakeMetaProvider{source: metadata.IDSourceMyAnimeList, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(2, "From MAL")}}}
+	kitsu := &fakeMetaProvider{source: metadata.IDSourceKitsu, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(3, "From Kitsu")}}}
+	manga := newFakeChapter(nil, 1).volume.manga
+
+	// map iteration would pick a random one now and then
+	for range 50 {
+		c := newTestClient(t, mal, ani, kitsu)
+		meta, err := c.SearchMetadata(context.Background(), manga)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if meta.Title() != "From MAL" {
+			t.Fatalf("got %q, want the first set provider (MAL)", meta.Title())
+		}
+	}
+}
+
+func TestSearchMetadataSkipsFailingProvider(t *testing.T) {
+	failing := &fakeMetaProvider{source: metadata.IDSourceAnilist, searchErr: errors.New("down")}
+	mal := &fakeMetaProvider{source: metadata.IDSourceMyAnimeList, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(2, "From MAL")}}}
+	manga := newFakeChapter(nil, 1).volume.manga
+
+	c := newTestClient(t, failing, mal)
+	meta, err := c.SearchMetadata(context.Background(), manga)
+	if err != nil || meta == nil || meta.Title() != "From MAL" {
+		t.Fatalf("got %v, %v, want the MAL result", meta, err)
+	}
+
+	c = newTestClient(t, failing)
+	if _, err := c.SearchMetadata(context.Background(), manga); err == nil {
+		t.Fatal("got no error, want the failing provider's")
 	}
 }

@@ -15,8 +15,10 @@ import (
 type Client struct {
 	provider Provider
 	meta     map[metadata.IDSource]*metadata.ProviderWithCache
-	options  ClientOptions
-	logger   *logger.Logger
+	// metaOrder is the order metadata providers were set in, their search priority
+	metaOrder []metadata.IDSource
+	options   ClientOptions
+	logger    *logger.Logger
 }
 
 // NewClient creates a new client from given ProviderLoader.

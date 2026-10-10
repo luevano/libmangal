@@ -23,6 +23,9 @@ func (c *Client) SetMetadataProvider(provider *metadata.ProviderWithCache) error
 	}
 
 	provider.SetLogger(c.logger)
+	if _, ok := c.meta[id]; !ok {
+		c.metaOrder = append(c.metaOrder, id)
+	}
 	c.meta[id] = provider
 	return nil
 }
@@ -55,21 +58,26 @@ func (c *Client) SearchMetadata(
 		return nil, errors.New("no metadata Providers available")
 	}
 
-	for id, p := range c.meta {
+	// a failing provider shouldn't stop the others from being searched
+	var errs []error
+	for _, id := range c.metaOrder {
+		p := c.meta[id]
 		meta, found, err := c.SearchByManga(ctx, p, manga)
 		if err != nil {
-			return nil, err
+			c.logger.Log("searching metadata for manga %q on %q: %s", manga, p, err)
+			errs = append(errs, err)
+			continue
 		}
 		if !found {
-			c.logger.Log("no metadata found for manga %q on metadata Provider %q", manga, string(id))
+			c.logger.Log("no metadata found for manga %q on %q", manga, p)
 			continue
 		}
 
-		c.logger.Log("found metadata for manga %q on metadata Provider %q", manga, string(id))
+		c.logger.Log("found metadata for manga %q on %q", manga, p)
 		return meta, nil
 	}
 
-	return nil, nil
+	return nil, errors.Join(errs...)
 }
 
 // SearchByManga is a convenience method to search given a Manga.
