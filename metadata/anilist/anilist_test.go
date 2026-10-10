@@ -111,3 +111,16 @@ func TestSearch(t *testing.T) {
 		t.Errorf("got %v", metas)
 	}
 }
+
+func TestSearchByIDNotFound(t *testing.T) {
+	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+		// what AniList answers for an unknown id (checked 2026-10-09)
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Not Found.","status":404,"locations":[{"line":1,"column":16}]}],"data":{"Media":null}}`))
+	})
+
+	meta, found, err := a.SearchByID(context.Background(), 999999999)
+	if err != nil || found || meta != nil {
+		t.Errorf("got %v found=%t err=%v, want not found", meta, found, err)
+	}
+}

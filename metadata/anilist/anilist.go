@@ -88,6 +88,9 @@ func (p *Anilist) SearchByID(ctx context.Context, id int) (metadata.Metadata, bo
 		},
 	}
 	data, err := sendRequest[byIDData](ctx, p, body)
+	if errors.Is(err, metadata.ErrNotFound) {
+		return nil, false, nil
+	}
 	if err != nil {
 		return nil, false, fmt.Errorf("get manga %d: %w", id, err)
 	}
