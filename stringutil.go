@@ -2,14 +2,60 @@ package libmangal
 
 import (
 	"regexp"
+	"runtime"
 	"strings"
+	"unicode/utf8"
 )
 
+// maxNameBytes keeps names under the usual 255 bytes limit with room for
+// the extension (".tar.gz") and the temporary suffix (".part").
+const maxNameBytes = 240
+
+var underscores = regexp.MustCompile(`_+`)
+
+// windowsReserved are names Windows doesn't allow for files, with or without an extension.
+var windowsReserved = map[string]bool{
+	"CON": true, "PRN": true, "AUX": true, "NUL": true,
+	"COM1": true, "COM2": true, "COM3": true, "COM4": true, "COM5": true, "COM6": true, "COM7": true, "COM8": true, "COM9": true,
+	"LPT1": true, "LPT2": true, "LPT3": true, "LPT4": true, "LPT5": true, "LPT6": true, "LPT7": true, "LPT8": true, "LPT9": true,
+}
+
 func sanitizePath(path string) string {
-	for _, ch := range invalidPathChars {
-		path = strings.ReplaceAll(path, string(ch), "_")
-	}
+	return sanitizeName(path, runtime.GOOS == "windows")
+}
+
+// sanitizeName makes name usable as a single file or directory name.
+func sanitizeName(name string, windows bool) string {
+	name = strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f || strings.ContainsRune(invalidPathChars, r) {
+			return '_'
+		}
+		return r
+	}, name)
 
 	// replace two or more consecutive underscores with one underscore
-	return regexp.MustCompile(`_+`).ReplaceAllString(path, "_")
+	name = underscores.ReplaceAllString(name, "_")
+
+	if len(name) > maxNameBytes {
+		name = name[:maxNameBytes]
+		// don't leave half a character
+		for !utf8.ValidString(name) {
+			name = name[:len(name)-1]
+		}
+	}
+
+	if windows {
+		// Windows drops trailing dots and spaces
+		name = strings.TrimRight(name, ". ")
+		base, _, _ := strings.Cut(name, ".")
+		if windowsReserved[strings.ToUpper(strings.TrimSpace(base))] {
+			name = "_" + name
+		}
+	}
+
+	switch name {
+	case "", ".", "..":
+		return "_"
+	}
+	return name
 }
