@@ -26,7 +26,12 @@ type Client struct {
 //
 // ClientOptions must be non-zero. Use DefaultClientOptions for defaults.
 // It will validate ProviderLoader.Info and load the provider.
-func NewClient(
+func NewClient(loader ProviderLoader, options ClientOptions) (*Client, error) {
+	return NewClientContext(context.Background(), loader, options)
+}
+
+// NewClientContext is NewClient with a context.
+func NewClientContext(
 	ctx context.Context,
 	loader ProviderLoader,
 	options ClientOptions,
@@ -80,22 +85,42 @@ func (c *Client) FS() afero.Fs {
 }
 
 // SearchMangas searches for mangas with the given query.
-func (c *Client) SearchMangas(ctx context.Context, query string) ([]mangadata.Manga, error) {
+func (c *Client) SearchMangas(query string) ([]mangadata.Manga, error) {
+	return c.SearchMangasContext(context.Background(), query)
+}
+
+// SearchMangasContext is SearchMangas with a context.
+func (c *Client) SearchMangasContext(ctx context.Context, query string) ([]mangadata.Manga, error) {
 	return c.provider.SearchMangas(ctx, query)
 }
 
 // MangaVolumes gets chapters of the given manga.
-func (c *Client) MangaVolumes(ctx context.Context, manga mangadata.Manga) ([]mangadata.Volume, error) {
+func (c *Client) MangaVolumes(manga mangadata.Manga) ([]mangadata.Volume, error) {
+	return c.MangaVolumesContext(context.Background(), manga)
+}
+
+// MangaVolumesContext is MangaVolumes with a context.
+func (c *Client) MangaVolumesContext(ctx context.Context, manga mangadata.Manga) ([]mangadata.Volume, error) {
 	return c.provider.MangaVolumes(ctx, manga)
 }
 
 // VolumeChapters gets chapters of the given manga.
-func (c *Client) VolumeChapters(ctx context.Context, volume mangadata.Volume) ([]mangadata.Chapter, error) {
+func (c *Client) VolumeChapters(volume mangadata.Volume) ([]mangadata.Chapter, error) {
+	return c.VolumeChaptersContext(context.Background(), volume)
+}
+
+// VolumeChaptersContext is VolumeChapters with a context.
+func (c *Client) VolumeChaptersContext(ctx context.Context, volume mangadata.Volume) ([]mangadata.Chapter, error) {
 	return c.provider.VolumeChapters(ctx, volume)
 }
 
 // ChapterPages gets pages of the given chapter.
-func (c *Client) ChapterPages(ctx context.Context, chapter mangadata.Chapter) ([]mangadata.Page, error) {
+func (c *Client) ChapterPages(chapter mangadata.Chapter) ([]mangadata.Page, error) {
+	return c.ChapterPagesContext(context.Background(), chapter)
+}
+
+// ChapterPagesContext is ChapterPages with a context.
+func (c *Client) ChapterPagesContext(ctx context.Context, chapter mangadata.Chapter) ([]mangadata.Page, error) {
 	return c.provider.ChapterPages(ctx, chapter)
 }
 

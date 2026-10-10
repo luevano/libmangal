@@ -12,8 +12,6 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-var _ Provider = (*ProviderWithCache)(nil)
-
 // ProviderInfo is the passport of the metadata provider.
 type ProviderInfo struct {
 	// ID is the unique identifier of the provider.
@@ -120,10 +118,10 @@ type Provider interface {
 	Logout() error
 }
 
-// ProviderWithCache is a Provider implementation with
-// cache features, and extra search behavior.
+// ProviderWithCache wraps a Provider with a cache and extra search behavior.
 //
-// This is a wrapper on a normal Provider.
+// Its methods that make requests come in pairs: Foo uses context.Background(),
+// FooContext takes a context.
 type ProviderWithCache struct {
 	provider Provider
 	store    store
@@ -190,7 +188,12 @@ func (p *ProviderWithCache) Logger() *logger.Logger {
 // SearchByID for metadata with the given id.
 //
 // Implementation should only handle the request and and marshaling.
-func (p *ProviderWithCache) SearchByID(ctx context.Context, id int) (Metadata, bool, error) {
+func (p *ProviderWithCache) SearchByID(id int) (Metadata, bool, error) {
+	return p.SearchByIDContext(context.Background(), id)
+}
+
+// SearchByIDContext is SearchByID with a context.
+func (p *ProviderWithCache) SearchByIDContext(ctx context.Context, id int) (Metadata, bool, error) {
 	p.logger.Log("searching manga metadata with id %d on %q", id, p.Info().Name)
 	meta, found, err := p.store.getMeta(id)
 	if err != nil {
@@ -220,7 +223,12 @@ func (p *ProviderWithCache) SearchByID(ctx context.Context, id int) (Metadata, b
 // Search for metadata with the given query.
 //
 // Implementation should only handle the request and and marshaling.
-func (p *ProviderWithCache) Search(ctx context.Context, query string) ([]Metadata, error) {
+func (p *ProviderWithCache) Search(query string) ([]Metadata, error) {
+	return p.SearchContext(context.Background(), query)
+}
+
+// SearchContext is Search with a context.
+func (p *ProviderWithCache) SearchContext(ctx context.Context, query string) ([]Metadata, error) {
 	p.logger.Log("searching manga metadata with query %q on %q", query, p.Info().Name)
 	ids, found, err := p.store.getQueryIDs(query)
 	if err != nil {
@@ -229,7 +237,7 @@ func (p *ProviderWithCache) Search(ctx context.Context, query string) ([]Metadat
 	if found {
 		var metas []Metadata
 		for _, id := range ids {
-			meta, ok, err := p.SearchByID(ctx, id)
+			meta, ok, err := p.SearchByIDContext(ctx, id)
 			if err != nil {
 				return nil, err
 			}
@@ -266,7 +274,12 @@ func (p *ProviderWithCache) Search(ctx context.Context, query string) ([]Metadat
 }
 
 // FindClosest metadata with the given title with its closest result.
-func (p *ProviderWithCache) FindClosest(ctx context.Context, title string, tries, steps int) (Metadata, bool, error) {
+func (p *ProviderWithCache) FindClosest(title string, tries, steps int) (Metadata, bool, error) {
+	return p.FindClosestContext(context.Background(), title, tries, steps)
+}
+
+// FindClosestContext is FindClosest with a context.
+func (p *ProviderWithCache) FindClosestContext(ctx context.Context, title string, tries, steps int) (Metadata, bool, error) {
 	p.logger.Log("finding closest manga metadata with title %q on %q", title, p.Info().Name)
 
 	id, found, err := p.store.getTitleID(title)
@@ -275,7 +288,7 @@ func (p *ProviderWithCache) FindClosest(ctx context.Context, title string, tries
 	}
 	if found {
 		// the title may be bound by the user, so look the id up even if its metadata expired
-		meta, found, err := p.SearchByID(ctx, id)
+		meta, found, err := p.SearchByIDContext(ctx, id)
 		if err != nil {
 			return nil, false, err
 		}
@@ -308,7 +321,7 @@ func (p *ProviderWithCache) findClosest(ctx context.Context, title string, tries
 	for i := 0; i < tries; i++ {
 		p.logger.Log("finding closest try %d/%d", i+1, tries)
 
-		metas, err := p.Search(ctx, title)
+		metas, err := p.SearchContext(ctx, title)
 		if err != nil {
 			return nil, false, err
 		}
@@ -348,7 +361,12 @@ func (p *ProviderWithCache) BindTitleWithID(title string, id int) error {
 // SetMangaProgress sets the reading progress for a given manga metadata id.
 //
 // For ProviderWithCache this is only a wrapper around the actual provider's method.
-func (p *ProviderWithCache) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
+func (p *ProviderWithCache) SetMangaProgress(id, chapterNumber int) error {
+	return p.SetMangaProgressContext(context.Background(), id, chapterNumber)
+}
+
+// SetMangaProgressContext is SetMangaProgress with a context.
+func (p *ProviderWithCache) SetMangaProgressContext(ctx context.Context, id, chapterNumber int) error {
 	p.logger.Log("setting manga chapter progress (%d) for manga id %d on %q", chapterNumber, id, p.Info().Name)
 	return p.provider.SetMangaProgress(ctx, id, chapterNumber)
 }
@@ -367,7 +385,12 @@ func (p *ProviderWithCache) User() User {
 }
 
 // Login authorizes an user with the given access token.
-func (p *ProviderWithCache) Login(ctx context.Context, token string) error {
+func (p *ProviderWithCache) Login(token string) error {
+	return p.LoginContext(context.Background(), token)
+}
+
+// LoginContext is Login with a context.
+func (p *ProviderWithCache) LoginContext(ctx context.Context, token string) error {
 	p.logger.Log("logging in to %q", p.Info().Name)
 	return p.provider.Login(ctx, token)
 }

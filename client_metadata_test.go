@@ -11,7 +11,7 @@ import (
 
 func newTestClient(t *testing.T, metas ...metadata.Provider) *Client {
 	t.Helper()
-	c, err := NewClient(context.Background(), fakeLoader{&fakeProvider{}}, DefaultClientOptions())
+	c, err := NewClientContext(context.Background(), fakeLoader{&fakeProvider{}}, DefaultClientOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestSearchByMangaWithoutMetadata(t *testing.T) {
 	c := newTestClient(t)
 	manga := newFakeChapter(nil, 1).volume.manga
 
-	meta, found, err := c.SearchByManga(context.Background(), withCache(t, ani), manga)
+	meta, found, err := c.SearchByMangaContext(context.Background(), withCache(t, ani), manga)
 	if err != nil || !found || meta != berserk {
 		t.Fatalf("got %v found=%t err=%v, want %v", meta, found, err, berserk)
 	}
@@ -42,7 +42,7 @@ func TestSearchByMangaUsesMetadataID(t *testing.T) {
 	// the manga already has metadata from this provider (e.g. bound before)
 	manga := newFakeChapter(newAniMeta(7, "Berserk"), 1).volume.manga
 
-	meta, found, err := c.SearchByManga(context.Background(), withCache(t, ani), manga)
+	meta, found, err := c.SearchByMangaContext(context.Background(), withCache(t, ani), manga)
 	if err != nil || !found || meta != berserk {
 		t.Fatalf("got %v found=%t err=%v, want %v", meta, found, err, berserk)
 	}
@@ -60,7 +60,7 @@ func TestSearchMetadataOrder(t *testing.T) {
 	// map iteration would pick a random one now and then
 	for range 50 {
 		c := newTestClient(t, mal, ani, kitsu)
-		meta, err := c.SearchMetadata(context.Background(), manga)
+		meta, err := c.SearchMetadataContext(context.Background(), manga)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,13 +76,13 @@ func TestSearchMetadataSkipsFailingProvider(t *testing.T) {
 	manga := newFakeChapter(nil, 1).volume.manga
 
 	c := newTestClient(t, failing, mal)
-	meta, err := c.SearchMetadata(context.Background(), manga)
+	meta, err := c.SearchMetadataContext(context.Background(), manga)
 	if err != nil || meta == nil || meta.Title() != "From MAL" {
 		t.Fatalf("got %v, %v, want the MAL result", meta, err)
 	}
 
 	c = newTestClient(t, failing)
-	if _, err := c.SearchMetadata(context.Background(), manga); err == nil {
+	if _, err := c.SearchMetadataContext(context.Background(), manga); err == nil {
 		t.Fatal("got no error, want the failing provider's")
 	}
 }
@@ -113,7 +113,7 @@ func TestReadChapterSyncsEnabledProviders(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ani, mal := newProviders()
 			c := newTestClient(t, ani, mal)
-			if err := c.ReadChapter(context.Background(), "x.cbz", chapter, tt.options); err != nil {
+			if err := c.ReadChapterContext(context.Background(), "x.cbz", chapter, tt.options); err != nil {
 				t.Fatal(err)
 			}
 			if got := ani.progress[7] == 12; got != tt.wantAni {

@@ -27,7 +27,7 @@ func TestDownloadFailedCoverIsNotWritten(t *testing.T) {
 	chapter := newFakeChapter(validMeta(), 2)
 
 	for range 2 {
-		down, err := c.DownloadChapter(context.Background(), chapter, options)
+		down, err := c.DownloadChapterContext(context.Background(), chapter, options)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -47,7 +47,7 @@ func TestDownloadChapterStatus(t *testing.T) {
 	chapter := newFakeChapter(validMeta(), 2)
 
 	for _, want := range []metadata.DownloadStatus{metadata.DownloadStatusNew, metadata.DownloadStatusOverwritten} {
-		down, err := c.DownloadChapter(context.Background(), chapter, options)
+		down, err := c.DownloadChapterContext(context.Background(), chapter, options)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,7 +57,7 @@ func TestDownloadChapterStatus(t *testing.T) {
 	}
 
 	options.SkipIfExists = true
-	down, err := c.DownloadChapter(context.Background(), chapter, options)
+	down, err := c.DownloadChapterContext(context.Background(), chapter, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,14 +70,14 @@ func TestDownloadPagesConcurrencyLimit(t *testing.T) {
 	provider := &fakeProvider{}
 	options := DefaultClientOptions()
 	options.ConcurrentPages = 3
-	c, err := NewClient(context.Background(), fakeLoader{provider}, options)
+	c, err := NewClientContext(context.Background(), fakeLoader{provider}, options)
 	if err != nil {
 		t.Fatal(err)
 	}
 	chapter := newFakeChapter(nil, 50)
 	pages, _ := provider.ChapterPages(context.Background(), chapter)
 
-	downloaded, err := c.DownloadPagesInBatch(context.Background(), pages)
+	downloaded, err := c.DownloadPagesInBatchContext(context.Background(), pages)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestDownloadPagesConcurrencyLimit(t *testing.T) {
 
 func TestDownloadErrorsWrap(t *testing.T) {
 	errImage := errors.New("fake: image of page: 403 forbidden")
-	c, err := NewClient(context.Background(), fakeLoader{&fakeProvider{imageErr: errImage}}, DefaultClientOptions())
+	c, err := NewClientContext(context.Background(), fakeLoader{&fakeProvider{imageErr: errImage}}, DefaultClientOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestDownloadErrorsWrap(t *testing.T) {
 	options.Directory = t.TempDir()
 	options.SearchMetadata = false
 
-	_, err = c.DownloadChapter(context.Background(), newFakeChapter(validMeta(), 1), options)
+	_, err = c.DownloadChapterContext(context.Background(), newFakeChapter(validMeta(), 1), options)
 	if !errors.Is(err, errImage) {
 		t.Fatalf("got %v, want it to wrap %v", err, errImage)
 	}
@@ -109,7 +109,7 @@ func TestDownloadErrorsWrap(t *testing.T) {
 
 	chapter := newFakeChapter(validMeta(), 1)
 	chapter.info.Unavailable = "external"
-	if _, err := c.DownloadChapter(context.Background(), chapter, options); !errors.Is(err, ErrUnavailable) {
+	if _, err := c.DownloadChapterContext(context.Background(), chapter, options); !errors.Is(err, ErrUnavailable) {
 		t.Errorf("got %v, want ErrUnavailable", err)
 	}
 }

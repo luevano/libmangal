@@ -16,7 +16,12 @@ import (
 // DownloadChapter downloads and writes chapter to disk with the given DownloadOptions.
 //
 // It will return resulting chapter download information via metadata.DownloadedChapter.
-func (c *Client) DownloadChapter(
+func (c *Client) DownloadChapter(chapter mangadata.Chapter, options DownloadOptions) (*metadata.DownloadedChapter, error) {
+	return c.DownloadChapterContext(context.Background(), chapter, options)
+}
+
+// DownloadChapterContext is DownloadChapter with a context.
+func (c *Client) DownloadChapterContext(
 	ctx context.Context,
 	chapter mangadata.Chapter,
 	options DownloadOptions,
@@ -33,7 +38,7 @@ func (c *Client) DownloadChapter(
 	// Found metadata will be replacing the incoming one,
 	// even when no metadata is found (nil)
 	if options.SearchMetadata {
-		m, err := c.SearchMetadata(ctx, manga)
+		m, err := c.SearchMetadataContext(ctx, manga)
 		if err != nil {
 			return nil, fmt.Errorf("search metadata: %w", err)
 		}
@@ -231,12 +236,12 @@ func (c *Client) downloadChapter(
 	path string,
 	options DownloadOptions,
 ) (metadata.DownloadStatus, error) {
-	pages, err := c.ChapterPages(ctx, chapter)
+	pages, err := c.ChapterPagesContext(ctx, chapter)
 	if err != nil {
 		return "", err
 	}
 
-	downloadedPages, err := c.DownloadPagesInBatch(ctx, pages)
+	downloadedPages, err := c.DownloadPagesInBatchContext(ctx, pages)
 	if err != nil {
 		return "", err
 	}
@@ -326,7 +331,12 @@ func (c *Client) downloadChapter(
 //
 // If any of the pages fails to download it will stop downloading other pages
 // and return error immediately.
-func (c *Client) DownloadPagesInBatch(
+func (c *Client) DownloadPagesInBatch(pages []mangadata.Page) ([]mangadata.PageWithImage, error) {
+	return c.DownloadPagesInBatchContext(context.Background(), pages)
+}
+
+// DownloadPagesInBatchContext is DownloadPagesInBatch with a context.
+func (c *Client) DownloadPagesInBatchContext(
 	ctx context.Context,
 	pages []mangadata.Page,
 ) ([]mangadata.PageWithImage, error) {
@@ -344,7 +354,7 @@ func (c *Client) DownloadPagesInBatch(
 		g.Go(func() error {
 			c.logger.Log("page #%03d: downloading", i+1)
 
-			downloaded, err := c.DownloadPage(ctx, page)
+			downloaded, err := c.DownloadPageContext(ctx, page)
 			if err != nil {
 				return fmt.Errorf("page %d: %w", i+1, err)
 			}
@@ -364,7 +374,12 @@ func (c *Client) DownloadPagesInBatch(
 }
 
 // DownloadPage downloads a page contents (image).
-func (c *Client) DownloadPage(
+func (c *Client) DownloadPage(page mangadata.Page) (mangadata.PageWithImage, error) {
+	return c.DownloadPageContext(context.Background(), page)
+}
+
+// DownloadPageContext is DownloadPage with a context.
+func (c *Client) DownloadPageContext(
 	ctx context.Context,
 	page mangadata.Page,
 ) (mangadata.PageWithImage, error) {

@@ -10,7 +10,7 @@ import (
 )
 
 func TestZeroOptionsReturnErrors(t *testing.T) {
-	if _, err := NewClient(context.Background(), fakeLoader{&fakeProvider{}}, ClientOptions{}); err == nil {
+	if _, err := NewClientContext(context.Background(), fakeLoader{&fakeProvider{}}, ClientOptions{}); err == nil {
 		t.Error("NewClient: got no error with zero options")
 	}
 	if _, err := metadata.NewProviderWithCache(metadata.ProviderWithCacheOptions{Provider: &fakeMetaProvider{}}); err == nil {
@@ -25,12 +25,12 @@ func TestZeroOptionsReturnErrors(t *testing.T) {
 
 	c, options := newDownloadTest(t)
 	zero := DownloadOptions{Directory: options.Directory}
-	if _, err := c.DownloadChapter(context.Background(), newFakeChapter(validMeta(), 1), zero); err == nil {
+	if _, err := c.DownloadChapterContext(context.Background(), newFakeChapter(validMeta(), 1), zero); err == nil {
 		t.Error("DownloadChapter: got no error with zero options")
 	}
 	// a nil transformer is fine
 	zero.Format = FormatCBZ
-	if _, err := c.DownloadChapter(context.Background(), newFakeChapter(validMeta(), 1), zero); err != nil {
+	if _, err := c.DownloadChapterContext(context.Background(), newFakeChapter(validMeta(), 1), zero); err != nil {
 		t.Errorf("DownloadChapter: %v", err)
 	}
 }

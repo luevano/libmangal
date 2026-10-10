@@ -51,7 +51,12 @@ func (c *Client) GetMetadataProvider(id metadata.IDSource) (*metadata.ProviderWi
 // 2. If the manga Title field is binded to a metadata ID.
 //
 // 3. Find closest manga metadata (FindClosest) by using the manga Title field.
-func (c *Client) SearchMetadata(
+func (c *Client) SearchMetadata(manga mangadata.Manga) (metadata.Metadata, error) {
+	return c.SearchMetadataContext(context.Background(), manga)
+}
+
+// SearchMetadataContext is SearchMetadata with a context.
+func (c *Client) SearchMetadataContext(
 	ctx context.Context,
 	manga mangadata.Manga,
 ) (metadata.Metadata, error) {
@@ -65,7 +70,7 @@ func (c *Client) SearchMetadata(
 	var errs []error
 	for _, id := range c.metaOrder {
 		p := c.meta[id]
-		meta, found, err := c.SearchByManga(ctx, p, manga)
+		meta, found, err := c.SearchByMangaContext(ctx, p, manga)
 		if err != nil {
 			c.logger.Log("searching metadata for manga %q on %q: %s", manga, p, err)
 			errs = append(errs, err)
@@ -93,7 +98,12 @@ func (c *Client) SearchMetadata(
 // 2. If the manga title is binded to a metadata ID.
 //
 // 3. Find closest manga metadata (FindClosest) by using the manga Title field.
-func (c *Client) SearchByManga(
+func (c *Client) SearchByManga(provider *metadata.ProviderWithCache, manga mangadata.Manga) (metadata.Metadata, bool, error) {
+	return c.SearchByMangaContext(context.Background(), provider, manga)
+}
+
+// SearchByMangaContext is SearchByManga with a context.
+func (c *Client) SearchByMangaContext(
 	ctx context.Context,
 	provider *metadata.ProviderWithCache,
 	manga mangadata.Manga,
@@ -107,7 +117,7 @@ func (c *Client) SearchByManga(
 			if id.Source != source || id.Value() == 0 {
 				continue
 			}
-			found, ok, err := provider.SearchByID(ctx, id.Value())
+			found, ok, err := provider.SearchByIDContext(ctx, id.Value())
 			if err != nil {
 				return nil, false, err
 			}
@@ -122,7 +132,7 @@ func (c *Client) SearchByManga(
 	// the manga requested, there are some instances in which
 	// the result will be wrong
 	title := manga.Info().Title
-	return provider.FindClosest(ctx, title, 3, 3)
+	return provider.FindClosestContext(ctx, title, 3, 3)
 }
 
 // ReadChapter opens the chapter for reading and marks it as read if authorized.
@@ -135,7 +145,12 @@ func (c *Client) SearchByManga(
 //
 // Note, that underlying filesystem must be mapped with OsFs
 // in order for os to open it.
-func (c *Client) ReadChapter(
+func (c *Client) ReadChapter(path string, chapter mangadata.Chapter, options ReadOptions) error {
+	return c.ReadChapterContext(context.Background(), path, chapter, options)
+}
+
+// ReadChapterContext is ReadChapter with a context.
+func (c *Client) ReadChapterContext(
 	ctx context.Context,
 	path string,
 	chapter mangadata.Chapter,
@@ -164,12 +179,12 @@ func (c *Client) ReadChapter(
 		delete(sync, id)
 		p := c.meta[id]
 
-		meta, found, err := c.SearchByManga(ctx, p, manga)
+		meta, found, err := c.SearchByMangaContext(ctx, p, manga)
 		if err == nil && !found {
 			err = fmt.Errorf("no metadata found for manga %q", manga)
 		}
 		if err == nil {
-			err = p.SetMangaProgress(ctx, meta.ID().Value(), progress)
+			err = p.SetMangaProgressContext(ctx, meta.ID().Value(), progress)
 		}
 		if err != nil {
 			c.logger.Log("setting manga progress on %q: %s", p, err)

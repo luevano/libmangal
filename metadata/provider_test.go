@@ -33,10 +33,10 @@ func TestProviderWithCacheConcurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	for range 20 {
 		wg.Go(func() {
-			if _, _, err := p.SearchByID(context.Background(), 7); err != nil {
+			if _, _, err := p.SearchByIDContext(context.Background(), 7); err != nil {
 				t.Error(err)
 			}
-			if _, err := p.Search(context.Background(), "berserk"); err != nil {
+			if _, err := p.SearchContext(context.Background(), "berserk"); err != nil {
 				t.Error(err)
 			}
 		})
@@ -50,7 +50,7 @@ func TestDefaultCacheStoreCaches(t *testing.T) {
 	p := newTestProvider(t, fake)
 
 	for range 2 {
-		metas, err := p.Search(context.Background(), "berserk")
+		metas, err := p.SearchContext(context.Background(), "berserk")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -94,7 +94,7 @@ func TestFindClosestKeepsBindingWhenMetadataExpires(t *testing.T) {
 	}
 
 	for range 2 {
-		meta, found, err := p.FindClosest(context.Background(), "berserk", 3, 3)
+		meta, found, err := p.FindClosestContext(context.Background(), "berserk", 3, 3)
 		if err != nil || !found {
 			t.Fatalf("got found=%t err=%v", found, err)
 		}
@@ -111,7 +111,7 @@ func TestFindClosestTrimsRunes(t *testing.T) {
 	fake := &fakeProvider{}
 	p := newTestProvider(t, fake)
 
-	if _, found, err := p.FindClosest(context.Background(), "ベルセルク", 3, 3); err != nil || found {
+	if _, found, err := p.FindClosestContext(context.Background(), "ベルセルク", 3, 3); err != nil || found {
 		t.Fatalf("got found=%t err=%v", found, err)
 	}
 	want := []string{"ベルセルク", "ベル", "ベ"}
@@ -131,7 +131,7 @@ func TestFindClosestLogsID(t *testing.T) {
 	var logs []string
 	p.Logger().SetOnLog(func(format string, a ...any) { logs = append(logs, fmt.Sprintf(format, a...)) })
 
-	if _, _, err := p.FindClosest(context.Background(), "berserk", 1, 1); err != nil {
+	if _, _, err := p.FindClosestContext(context.Background(), "berserk", 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Contains(logs, `found closest: "Berserk" with id 7`) {
@@ -149,7 +149,7 @@ func TestCacheErrorsWrap(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err = p.SearchByID(context.Background(), 7)
+	_, _, err = p.SearchByIDContext(context.Background(), 7)
 	if !errors.Is(err, errStore) {
 		t.Fatalf("got %v, want it to wrap %v", err, errStore)
 	}
