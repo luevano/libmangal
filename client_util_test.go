@@ -2,7 +2,11 @@ package libmangal
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/luevano/libmangal/mangadata"
@@ -50,5 +54,35 @@ func TestSaveArchivesReturnCloseErrors(t *testing.T) {
 	}
 	if err := c.saveTARGZ(pages, errWriter{}); !errors.Is(err, errWrite) {
 		t.Errorf("saveTARGZ: got %v, want %v", err, errWrite)
+	}
+}
+
+func TestMangaImageReferer(t *testing.T) {
+	var referer string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		referer = r.Header.Get("Referer")
+		_, _ = w.Write([]byte("image"))
+	}))
+	defer server.Close()
+	c := newTestClient(t)
+
+	// cover from the metadata (e.g. AniList): the manga page isn't its referer
+	meta := validMeta()
+	meta.CoverImage = server.URL + "/meta.jpg"
+	manga := newFakeChapter(meta, 1).volume.manga
+	if err := c.downloadMangaImage(context.Background(), manga, mangaImageCover, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if referer != "" {
+		t.Errorf("metadata cover sent referer %q, want none", referer)
+	}
+
+	// cover from the provider
+	manga.info.Cover = server.URL + "/provider.jpg"
+	if err := c.downloadMangaImage(context.Background(), manga, mangaImageCover, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if referer != manga.info.URL {
+		t.Errorf("provider cover sent referer %q, want %q", referer, manga.info.URL)
 	}
 }

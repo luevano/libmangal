@@ -215,7 +215,7 @@ func (c *Client) saveZIP(
 //
 // For example this can be either banner image or cover image.
 //
-// Manga is required to set Referer header.
+// The manga page is sent as the Referer for images that come from the provider.
 func (c *Client) downloadMangaImage(
 	ctx context.Context,
 	manga mangadata.Manga,
@@ -224,11 +224,12 @@ func (c *Client) downloadMangaImage(
 ) error {
 	c.logger.Log("downloading %s image", mangaImage)
 	var URL string
+	var fromProvider bool
 	switch mangaImage {
 	case mangaImageCover:
-		URL = getCover(manga)
+		URL, fromProvider = getCover(manga)
 	case mangaImageBanner:
-		URL = getBanner(manga)
+		URL, fromProvider = getBanner(manga)
 	default:
 		return fmt.Errorf("unknown manga image type %q", mangaImage)
 	}
@@ -242,9 +243,9 @@ func (c *Client) downloadMangaImage(
 		return fmt.Errorf("download %s: %w", mangaImage, err)
 	}
 
-	// TODO: change referer? this asumes that the cover/banner URL comes
-	// from the manga site itself, what if it comes from anilist?
-	request.Header.Set("Referer", manga.Info().URL)
+	if fromProvider {
+		request.Header.Set("Referer", manga.Info().URL)
+	}
 	request.Header.Set("User-Agent", c.options.UserAgent)
 	request.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
 
@@ -265,28 +266,28 @@ func (c *Client) downloadMangaImage(
 	return nil
 }
 
-// getCover returns the cover image URL.
-func getCover(manga mangadata.Manga) string {
-	cover := manga.Info().Cover
-	if cover != "" {
-		return cover
+// getCover returns the cover image URL, and whether it's the provider's
+// instead of the metadata's.
+func getCover(manga mangadata.Manga) (string, bool) {
+	if cover := manga.Info().Cover; cover != "" {
+		return cover, true
 	}
 	if manga.Metadata() != nil {
-		cover = manga.Metadata().Cover()
+		return manga.Metadata().Cover(), false
 	}
-	return cover
+	return "", false
 }
 
-// getBanner returns the banner image URL.
-func getBanner(manga mangadata.Manga) string {
-	banner := manga.Info().Banner
-	if banner != "" {
-		return banner
+// getBanner returns the banner image URL, and whether it's the provider's
+// instead of the metadata's.
+func getBanner(manga mangadata.Manga) (string, bool) {
+	if banner := manga.Info().Banner; banner != "" {
+		return banner, true
 	}
 	if manga.Metadata() != nil {
-		banner = manga.Metadata().Banner()
+		return manga.Metadata().Banner(), false
 	}
-	return banner
+	return "", false
 }
 
 // getSeriesJSON gets SeriesJSON from the chapter.
