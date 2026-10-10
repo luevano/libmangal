@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
@@ -135,29 +136,94 @@ func (c *Client) MatchMangaContext(
 	provider *metadata.ProviderWithCache,
 	manga mangadata.Manga,
 ) (metadata.Match, bool, error) {
-	c.logger.Log("searching metadata for manga %q on %q", manga, provider)
+	matches, found, err := c.MatchMangasContext(ctx, provider, []mangadata.Manga{manga})
+	if err != nil {
+		return metadata.Match{}, false, err
+	}
+	return matches[0], found[0], nil
+}
 
-	query := metadata.Query{Titles: []string{manga.Info().Title}}
-	if meta := manga.Metadata(); meta != nil {
-		source := provider.Info().Source
+// MatchMangas is MatchManga for several mangas, with as few requests as possible
+// (see metadata.ProviderWithCache.FindClosestMany).
+func (c *Client) MatchMangas(provider *metadata.ProviderWithCache, mangas []mangadata.Manga) ([]metadata.Match, []bool, error) {
+	return c.MatchMangasContext(context.Background(), provider, mangas)
+}
+
+// MatchMangasContext is MatchMangas with a context.
+func (c *Client) MatchMangasContext(
+	ctx context.Context,
+	provider *metadata.ProviderWithCache,
+	mangas []mangadata.Manga,
+) ([]metadata.Match, []bool, error) {
+	c.logger.Log("searching metadata for %d mangas on %q", len(mangas), provider)
+	matches := make([]metadata.Match, len(mangas))
+	found := make([]bool, len(mangas))
+
+	source := provider.Info().Source
+	queries := make([]metadata.Query, len(mangas))
+	idsOf := map[int][]int{}
+	var allIDs []int
+	for i, manga := range mangas {
+		queries[i] = metadata.Query{Titles: []string{manga.Info().Title}}
+		meta := manga.Metadata()
+		if meta == nil {
+			continue
+		}
 		for _, id := range append([]metadata.ID{meta.ID()}, meta.ExtraIDs()...) {
-			if id.Source != source || id.Value() == 0 {
-				continue
-			}
-			found, ok, err := provider.SearchByIDContext(ctx, id.Value())
-			if err != nil {
-				return metadata.Match{}, false, err
-			}
-			if ok {
-				return metadata.Match{Metadata: found, Score: 1, Bound: true}, true, nil
+			if id.Source == source && id.Value() != 0 {
+				idsOf[i] = append(idsOf[i], id.Value())
+				allIDs = append(allIDs, id.Value())
 			}
 		}
-
-		query.Titles = append(append(query.Titles, meta.Title()), meta.AlternateTitles()...)
-		query.Year = meta.StartDate().Year
+		queries[i].Titles = append(append(queries[i].Titles, meta.Title()), meta.AlternateTitles()...)
+		queries[i].Year = meta.StartDate().Year
 	}
 
-	return provider.FindClosestContext(ctx, query)
+	// ids given by the provider (or a previous binding) win
+	if len(allIDs) != 0 {
+		metas, err := provider.SearchByIDsContext(ctx, allIDs)
+		if err != nil {
+			return nil, nil, err
+		}
+		for i, ids := range idsOf {
+			for _, id := range ids {
+				if meta, ok := metas[id]; ok {
+					matches[i], found[i] = metadata.Match{Metadata: meta, Score: 1, Bound: true}, true
+					break
+				}
+			}
+		}
+	}
+
+	var pending []int
+	var pendingQueries []metadata.Query
+	for i, query := range queries {
+		if found[i] || !hasTitle(query) {
+			continue
+		}
+		pending = append(pending, i)
+		pendingQueries = append(pendingQueries, query)
+	}
+	if len(pending) == 0 {
+		return matches, found, nil
+	}
+	closest, closestFound, err := provider.FindClosestManyContext(ctx, pendingQueries)
+	if err != nil {
+		return nil, nil, err
+	}
+	for j, i := range pending {
+		matches[i], found[i] = closest[j], closestFound[j]
+	}
+	return matches, found, nil
+}
+
+func hasTitle(query metadata.Query) bool {
+	for _, t := range query.Titles {
+		if strings.TrimSpace(t) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // ReadChapter opens the chapter for reading and marks it as read if authorized.

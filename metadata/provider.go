@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/philippgille/gokv"
@@ -288,66 +287,12 @@ func (p *ProviderWithCache) FindClosest(query Query) (match Match, found bool, e
 
 // FindClosestContext is FindClosest with a context.
 func (p *ProviderWithCache) FindClosestContext(ctx context.Context, query Query) (match Match, found bool, err error) {
-	if len(query.Titles) == 0 {
-		return Match{}, false, fmt.Errorf("%s: closest match: no titles", p.Info().ID)
-	}
-	title := query.Titles[0]
-	p.logger.Log("finding closest manga metadata to %q on %q", title, p.Info().Name)
-
-	id, found, err := p.store.getTitleID(title)
+	p.logger.Log("finding closest manga metadata to %q on %q", query.Titles, p.Info().Name)
+	matches, founds, err := p.FindClosestManyContext(ctx, []Query{query})
 	if err != nil {
-		return Match{}, false, p.cacheError(err)
+		return Match{}, false, err
 	}
-	if found {
-		// the title may be bound by the user, so look the id up even if its metadata expired
-		meta, found, err := p.SearchByIDContext(ctx, id)
-		if err != nil {
-			return Match{}, false, err
-		}
-		if found {
-			return Match{Metadata: meta, Score: Score(query, meta), Bound: true}, true, nil
-		}
-		p.logger.Log("id %d bound to title %q not found, searching by title", id, title)
-	}
-
-	searches := 0
-	for _, t := range query.Titles {
-		if searches == maxMatchSearches {
-			break
-		}
-		if strings.TrimSpace(t) == "" {
-			continue
-		}
-		searches++
-
-		metas, err := p.SearchContext(ctx, t)
-		if err != nil {
-			return Match{}, false, err
-		}
-		if ranked := Rank(query, metas); len(ranked) != 0 && (!found || ranked[0].Score > match.Score) {
-			match, found = ranked[0], true
-		}
-		if found && !match.Bad() {
-			break
-		}
-	}
-	if !found {
-		return Match{}, false, nil
-	}
-
-	p.logger.Log("closest to %q: %q with id %s (score %.2f)", title, match.Metadata, match.Metadata.ID().Raw, match.Score)
-	if match.Bad() {
-		return match, true, nil
-	}
-
-	id, err = strconv.Atoi(match.Metadata.ID().Raw)
-	if err != nil {
-		return Match{}, false, fmt.Errorf("%s: closest to %q: id %q isn't an integer", p.Info().ID, title, match.Metadata.ID().Raw)
-	}
-	if err := p.store.setTitleID(title, id); err != nil {
-		return Match{}, false, p.cacheError(err)
-	}
-	return match, true, nil
+	return matches[0], founds[0], nil
 }
 
 // BindTitleWithID sets a given id to a title, so on each title search
@@ -401,4 +346,14 @@ func (p *ProviderWithCache) LoginContext(ctx context.Context, token string) erro
 func (p *ProviderWithCache) Logout() error {
 	p.logger.Log("logging out of %q", p.Info().Name)
 	return p.provider.Logout()
+}
+
+// Batcher is a Provider that can search several queries or ids at once,
+// ProviderWithCache uses it when available.
+type Batcher interface {
+	// SearchMany searches several queries, the results are in the order of the queries.
+	SearchMany(ctx context.Context, queries []string) ([][]Metadata, error)
+
+	// SearchByIDs gets the metadata of several ids, unknown ids are left out.
+	SearchByIDs(ctx context.Context, ids []int) (map[int]Metadata, error)
 }

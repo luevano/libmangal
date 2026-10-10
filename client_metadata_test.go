@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
 	"github.com/skratchdot/open-golang/open"
 )
@@ -139,5 +140,35 @@ func TestSearchByMangaSkipsBadMatches(t *testing.T) {
 	}
 	if meta, found, err := c.SearchByMangaContext(context.Background(), cached, manga); err != nil || found || meta != nil {
 		t.Errorf("got %v found=%t err=%v, want the bad match not used", meta, found, err)
+	}
+}
+
+func TestMatchMangas(t *testing.T) {
+	byID := newAniMeta(7, "Fake Manga")
+	byTitle := newAniMeta(8, "Other Manga")
+	ani := &fakeMetaProvider{
+		source:  metadata.IDSourceAnilist,
+		byID:    map[int]metadata.Metadata{7: byID},
+		byQuery: map[string][]metadata.Metadata{"Other Manga": {byTitle}},
+	}
+	c := newTestClient(t)
+	withID := newFakeChapter(newAniMeta(7, "Fake Manga"), 1).volume.manga
+	other := newFakeChapter(nil, 1).volume.manga
+	other.info.Title = "Other Manga"
+	untitled := newFakeChapter(nil, 1).volume.manga
+	untitled.info.Title = ""
+
+	matches, found, err := c.MatchMangasContext(context.Background(), withCache(t, ani), []mangadata.Manga{withID, other, untitled})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !found[0] || matches[0].Metadata != byID || !matches[0].Bound {
+		t.Errorf("by id: %+v", matches[0])
+	}
+	if !found[1] || matches[1].Metadata != byTitle || matches[1].Bad() {
+		t.Errorf("by title: %+v", matches[1])
+	}
+	if found[2] {
+		t.Errorf("untitled found: %+v", matches[2])
 	}
 }

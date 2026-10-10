@@ -169,3 +169,32 @@ func TestSetMangaProgress(t *testing.T) {
 		})
 	}
 }
+
+func TestSearchMany(t *testing.T) {
+	var requests int
+	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		var body apiRequestBody
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		// answer every aliased search with one manga named after its query
+		out := map[string]any{}
+		for name, q := range body.Variables {
+			out[name] = map[string]any{"media": []any{map[string]any{"id": len(q.(string)), "title": map[string]any{"english": q}}}}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": out})
+	})
+
+	queries := []string{"a", "bb", "ccc", "dddd", "eeeee", "ffffff", "ggggggg", "hhhhhhhh", "iiiiiiiii", "jjjjjjjjjj"}
+	results, err := a.SearchMany(context.Background(), queries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requests != 2 {
+		t.Errorf("%d requests, want 2 (8 searches per request)", requests)
+	}
+	for i, q := range queries {
+		if len(results[i]) != 1 || results[i][0].Title() != q {
+			t.Errorf("query %q: got %v", q, results[i])
+		}
+	}
+}
