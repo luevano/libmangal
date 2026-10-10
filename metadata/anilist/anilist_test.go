@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,9 +24,47 @@ func newTestAnilist(t *testing.T, handler http.HandlerFunc) *Anilist {
 	return a
 }
 
+func TestRateLimitRetry(t *testing.T) {
+	var requests atomic.Int32
+	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+		if requests.Add(1) == 1 {
+			// the remaining requests are 0 when rate limited, not a wait time
+			w.Header().Set("Retry-After", "1")
+			w.Header().Set("X-RateLimit-Remaining", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"page":{"media":[]}}}`))
+	})
+
+	start := time.Now()
+	if _, err := a.Search(context.Background(), "berserk"); err != nil {
+		t.Fatal(err)
+	}
+	if waited := time.Since(start); waited < time.Second {
+		t.Errorf("retried after %s, want the 1s from Retry-After", waited)
+	}
+	if requests.Load() != 2 {
+		t.Errorf("%d requests, want 2", requests.Load())
+	}
+}
+
+func TestRateLimitRetryCancel(t *testing.T) {
+	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "60")
+		w.WriteHeader(http.StatusTooManyRequests)
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	if _, err := a.Search(ctx, "berserk"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("got %v, want the context error", err)
+	}
+}
+
 func TestRateLimitError(t *testing.T) {
 	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Retry-After", "30")
+		w.Header().Set("Retry-After", "0")
 		w.Header().Set("X-RateLimit-Remaining", "0")
 		w.WriteHeader(http.StatusTooManyRequests)
 	})
@@ -35,10 +74,10 @@ func TestRateLimitError(t *testing.T) {
 	if !errors.As(err, &rateLimit) || !errors.Is(err, metadata.ErrRateLimited) {
 		t.Fatalf("got %v, want a RateLimitError", err)
 	}
-	if rateLimit.RetryAfterDuration() != 30*time.Second {
-		t.Errorf("retry after %s, want 30s", rateLimit.RetryAfter)
+	if rateLimit.RetryAfterDuration() != 0 {
+		t.Errorf("retry after %s, want 0s", rateLimit.RetryAfter)
 	}
-	if want := `search "berserk": anilist: 429 too many requests (retry after 30s)`; err.Error() != want {
+	if want := `search "berserk": anilist: 429 too many requests (retry after 0s)`; err.Error() != want {
 		t.Errorf("got %q, want %q", err, want)
 	}
 }

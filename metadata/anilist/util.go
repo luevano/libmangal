@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 type apiRequestBody struct {
@@ -22,7 +24,31 @@ type apiResponse[Data any] struct {
 	Data Data `json:"data"`
 }
 
+// rateLimitRetries is how many times a rate limited request is retried (after waiting).
+const rateLimitRetries = 1
+
 func sendRequest[Data any](
+	ctx context.Context,
+	anilist *Anilist,
+	requestBody apiRequestBody,
+) (data Data, err error) {
+	for retry := 0; ; retry++ {
+		data, err = sendRequestOnce[Data](ctx, anilist, requestBody)
+		var rateLimit *RateLimitError
+		if retry == rateLimitRetries || !errors.As(err, &rateLimit) {
+			return data, err
+		}
+
+		anilist.logger.Log("rate limited, retrying in %s", rateLimit.RetryAfter)
+		select {
+		case <-time.After(rateLimit.RetryAfter):
+		case <-ctx.Done():
+			return data, ctx.Err()
+		}
+	}
+}
+
+func sendRequestOnce[Data any](
 	ctx context.Context,
 	anilist *Anilist,
 	requestBody apiRequestBody,
