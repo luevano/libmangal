@@ -314,7 +314,7 @@ func (p *ProviderWithCache) findClosest(ctx context.Context, title string, tries
 
 		if len(metas) > 0 {
 			closest := metas[0]
-			p.logger.Log("found closest: %q with id %d", closest.String(), closest.ID)
+			p.logger.Log("found closest: %q with id %s", closest, closest.ID().Raw)
 			return closest, true, nil
 		}
 

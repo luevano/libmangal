@@ -98,7 +98,7 @@ func (c *Client) SearchByManga(
 	provider *metadata.ProviderWithCache,
 	manga mangadata.Manga,
 ) (metadata.Metadata, bool, error) {
-	c.logger.Log("searching metadata by (libmangal) manga on %q", c.Info().Name)
+	c.logger.Log("searching metadata for manga %q on %q", manga, provider)
 
 	// Try to search by metadata ID if it is available
 	if meta := manga.Metadata(); meta != nil {

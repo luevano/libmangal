@@ -2,6 +2,8 @@ package metadata
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"sync"
 	"testing"
 
@@ -118,5 +120,19 @@ func TestFindClosestTrimsRunes(t *testing.T) {
 		if q != want[i] {
 			t.Errorf("query %d: got %q, want %q", i, q, want[i])
 		}
+	}
+}
+
+func TestFindClosestLogsID(t *testing.T) {
+	berserk := &fakeMeta{id: 7, title: "Berserk"}
+	p := newTestProvider(t, &fakeProvider{byQuery: map[string][]Metadata{"berserk": {berserk}}})
+	var logs []string
+	p.Logger().SetOnLog(func(format string, a ...any) { logs = append(logs, fmt.Sprintf(format, a...)) })
+
+	if _, _, err := p.FindClosest(context.Background(), "berserk", 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(logs, `found closest: "Berserk" with id 7`) {
+		t.Errorf("logs %q, want the closest id", logs)
 	}
 }
