@@ -95,6 +95,31 @@ func (c *Client) SearchMangasContext(ctx context.Context, query string) ([]manga
 	return c.provider.SearchMangas(ctx, query)
 }
 
+// MangaByID gets the manga with the given id (mangadata.MangaInfo.ID), the same manga
+// a search would return.
+//
+// found is false, with a nil error, when there is no such manga. If the provider doesn't
+// implement MangaByIDProvider the error matches ErrMangaByIDUnsupported.
+func (c *Client) MangaByID(id string) (mangadata.Manga, bool, error) {
+	return c.MangaByIDContext(context.Background(), id)
+}
+
+// MangaByIDContext is MangaByID with a context.
+func (c *Client) MangaByIDContext(ctx context.Context, id string) (mangadata.Manga, bool, error) {
+	p, ok := c.provider.(MangaByIDProvider)
+	if !ok {
+		return nil, false, fmt.Errorf("provider %q: %w", c.provider.Info().ID, ErrMangaByIDUnsupported)
+	}
+	manga, found, err := p.MangaByID(ctx, id)
+	if err != nil {
+		return nil, false, fmt.Errorf("get manga %q: %w", id, err)
+	}
+	if !found || manga == nil {
+		return nil, false, nil
+	}
+	return manga, true, nil
+}
+
 // MangaVolumes gets volumes of the given manga.
 func (c *Client) MangaVolumes(manga mangadata.Manga) ([]mangadata.Volume, error) {
 	return c.MangaVolumesContext(context.Background(), manga)

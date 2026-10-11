@@ -196,3 +196,12 @@ type Provider interface {
 		page mangadata.Page,
 	) ([]byte, error)
 }
+
+// MangaByIDProvider is an optional interface for providers that can get a manga by its id
+// (mangadata.MangaInfo.ID) without a search.
+type MangaByIDProvider interface {
+	// MangaByID gets the manga with the given id, the same manga a search would return.
+	//
+	// found is false, with a nil error, when there is no such manga.
+	MangaByID(ctx context.Context, id string) (manga mangadata.Manga, found bool, err error)
+}
