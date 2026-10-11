@@ -253,8 +253,6 @@ func (c *Client) ReadChapterContext(
 		return fmt.Errorf("open %s: %w", path, err)
 	}
 
-	// TODO: save to local history (options.SaveHistory)
-
 	sync := map[metadata.IDSource]bool{
 		metadata.IDSourceAnilist:     options.SaveAnilist,
 		metadata.IDSourceMyAnimeList: options.SaveMyAnimeList,

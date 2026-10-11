@@ -110,7 +110,7 @@ func TestReadChapterSyncsEnabledProviders(t *testing.T) {
 		{"mal only", ReadOptions{SaveMyAnimeList: true}, false, true, false},
 		{"kitsu only", ReadOptions{SaveKitsu: true}, false, false, true},
 		{"all", ReadOptions{SaveAnilist: true, SaveMyAnimeList: true, SaveKitsu: true}, true, true, true},
-		{"none", ReadOptions{SaveHistory: true}, false, false, false},
+		{"none", ReadOptions{}, false, false, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

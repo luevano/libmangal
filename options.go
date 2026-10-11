@@ -21,9 +21,6 @@ const (
 
 // ReadOptions configures the reader options.
 type ReadOptions struct {
-	// SaveHistory will save the chapter to the local history. Not implemented yet.
-	SaveHistory bool
-
 	// SaveAnilist will set the Anilist reading progress, needs to be logged in.
 	SaveAnilist bool
 
@@ -37,7 +34,6 @@ type ReadOptions struct {
 // DefaultReadOptions constructs default ReadOptions.
 func DefaultReadOptions() ReadOptions {
 	return ReadOptions{
-		SaveHistory:     false,
 		SaveAnilist:     false,
 		SaveMyAnimeList: false,
 		SaveKitsu:       false,
