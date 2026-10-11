@@ -5,8 +5,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
 )
 
@@ -114,5 +116,83 @@ func TestDownloadErrorsWrap(t *testing.T) {
 	chapter.info.Unavailable = "external"
 	if _, err := c.DownloadChapterContext(context.Background(), chapter, options); !errors.Is(err, ErrUnavailable) {
 		t.Errorf("got %v, want ErrUnavailable", err)
+	}
+}
+
+type fakeChapterIndex struct {
+	path, provider string
+}
+
+func (f fakeChapterIndex) FindChapter(string, mangadata.Chapter, Format) (string, string, bool, error) {
+	return f.path, f.provider, f.path != "", nil
+}
+
+func TestChapterIndexSkips(t *testing.T) {
+	dir := t.TempDir()
+	existing := filepath.Join(dir, "Fake Manga", "Chapter 1 from elsewhere.cbz")
+	if err := os.MkdirAll(filepath.Dir(existing), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(existing, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	newClient := func(index ChapterIndex) *Client {
+		options := DefaultClientOptions()
+		options.ChapterIndex = index
+		c, err := NewClientContext(context.Background(), fakeLoader{&fakeProvider{}}, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	options := DefaultDownloadOptions()
+	options.Directory = dir
+	options.SearchMetadata = false
+	chapter := newFakeChapter(validMeta(), 1)
+
+	down, err := newClient(fakeChapterIndex{path: existing, provider: "other"}).DownloadChapterContext(context.Background(), chapter, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if down.ChapterStatus != metadata.DownloadStatusExists || down.Path() != existing || !strings.Contains(down.Skipped, `from other as "Chapter 1 from elsewhere.cbz"`) {
+		t.Errorf("got %+v", down)
+	}
+
+	// a stale entry (the file is gone) doesn't stop the download
+	down, err = newClient(fakeChapterIndex{path: filepath.Join(dir, "gone.cbz"), provider: "other"}).DownloadChapterContext(context.Background(), chapter, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if down.ChapterStatus != metadata.DownloadStatusNew || down.Skipped != "" {
+		t.Errorf("got %+v", down)
+	}
+
+	// again, the same file
+	down, _ = newClient(nil).DownloadChapterContext(context.Background(), chapter, options)
+	if down.Skipped != "already downloaded" {
+		t.Errorf("skipped %q", down.Skipped)
+	}
+}
+
+type accountProvider struct{ *fakeProvider }
+
+func (accountProvider) Account(context.Context) (Account, bool, error) {
+	return Account{Service: "Fake", Status: "deluxe"}, true, nil
+}
+
+func TestAccount(t *testing.T) {
+	c, _ := NewClientContext(context.Background(), fakeLoader{accountProvider{&fakeProvider{}}}, DefaultClientOptions())
+	if account, ok, err := c.Account(); err != nil || !ok || account.Status != "deluxe" {
+		t.Errorf("got %+v %t %v", account, ok, err)
+	}
+	c, _ = NewClientContext(context.Background(), fakeLoader{&fakeProvider{}}, DefaultClientOptions())
+	if _, ok, _ := c.Account(); ok {
+		t.Error("account without an AccountProvider")
+	}
+	ani := &fakeMetaProvider{source: metadata.IDSourceAnilist}
+	if account := metadata.AccountOf(ani); account.Status != "not logged in" {
+		// the fake is authenticated but has no user
+		t.Errorf("got %+v", account)
 	}
 }

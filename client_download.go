@@ -123,6 +123,28 @@ func (c *Client) downloadChapterWithMetadata(
 	if err != nil {
 		return nil, err
 	}
+	skipped := "already downloaded"
+
+	// the same chapter may be there under another name (e.g. from another provider)
+	if options.SkipIfExists && !chapterExists && c.options.ChapterIndex != nil {
+		mangaDir := dirs.manga
+		if mangaDir == "" {
+			mangaDir = dirs.chapter
+		}
+		existing, provider, found, err := c.options.ChapterIndex.FindChapter(mangaDir, chapter, options.Format)
+		if err != nil {
+			return nil, fmt.Errorf("chapter index: %w", err)
+		}
+		if found {
+			if chapterExists, err = existsFunc(existing); err != nil {
+				return nil, err
+			}
+		}
+		if chapterExists {
+			skipped = fmt.Sprintf("already downloaded from %s as %q", provider, filepath.Base(existing))
+			directory, chapterFilename = filepath.Dir(existing), filepath.Base(existing)
+		}
+	}
 
 	// Data about downloaded chapter
 	downChap := &metadata.DownloadedChapter{
@@ -135,6 +157,10 @@ func (c *Client) downloadChapterWithMetadata(
 		ComicInfoXMLStatus: metadata.DownloadStatusSkip, // only CBZ writes it
 		CoverStatus:        metadata.DownloadStatusSkip,
 		BannerStatus:       metadata.DownloadStatusSkip,
+	}
+
+	if chapterExists && options.SkipIfExists {
+		downChap.Skipped = skipped
 	}
 
 	if !chapterExists || !options.SkipIfExists {

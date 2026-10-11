@@ -20,6 +20,10 @@ type DownloadedChapter struct {
 	// Pages is how many pages were downloaded, 0 if the chapter was skipped (already downloaded).
 	Pages int `json:"pages"`
 
+	// Skipped is why the chapter wasn't downloaded (e.g. it's there from another provider),
+	// empty if it was.
+	Skipped string `json:"skipped,omitempty"`
+
 	// ChapterStatus is the status of the downloaded chapter.
 	ChapterStatus DownloadStatus `json:"chapter_status"`
 

@@ -161,6 +161,11 @@ type ClientOptions struct {
 	// ModeFile is the permission bits used for all files created.
 	ModeFile fs.FileMode
 
+	// ChapterIndex is asked whether a manga directory already has the chapter (by number,
+	// in the format), so it isn't downloaded again under another name, e.g. from another
+	// provider. Optional, used when DownloadOptions.SkipIfExists is set.
+	ChapterIndex ChapterIndex
+
 	// MangaDirIndex is asked for the directory of a manga before scanning the MangaDirInfo
 	// files (DownloadOptions.ReuseMangaDir). Optional.
 	MangaDirIndex MangaDirIndex

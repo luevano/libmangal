@@ -57,6 +57,13 @@ type MangaDirIndex interface {
 	RememberMangaDir(parent, name string, info MangaDirInfo) error
 }
 
+// ChapterIndex knows the chapters downloaded in each manga directory. See ClientOptions.ChapterIndex.
+type ChapterIndex interface {
+	// FindChapter returns the path of the chapter with the same number in the format,
+	// downloaded in mangaDir (by any provider), and the provider id it came from.
+	FindChapter(mangaDir string, chapter mangadata.Chapter, format Format) (path, provider string, found bool, err error)
+}
+
 // Manga directory matches, from MatchMangaDir.
 const (
 	MangaDirNoMatch = iota
