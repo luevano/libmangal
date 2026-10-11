@@ -8,7 +8,7 @@
 > 
 > The API is not stable and may change at any time.
 
-This is an *engine* for downloading, managing and tagging manga with native Anilist integration. A powerful wrapper around anything that implements its `Provider` interface.
+This is an *engine* for downloading, managing and tagging manga with native AniList, Kitsu and MyAnimeList integration. A powerful wrapper around anything that implements its `Provider` interface.
 
 Designed to be the backend for applications such as CLI, TUI, web apps, gRPC server, etc.
 
@@ -28,9 +28,11 @@ Designed to be the backend for applications such as CLI, TUI, web apps, gRPC ser
 - Generates metadata files:
   - `ComicInfo.xml` - The ComicInfo.xml file originates from the ComicRack application, which is not developed anymore. The ComicInfo.xml however is used by a variety of applications.
   - `series.json` - A JSON file containing metadata about the series. Originates from [mylar3](https://github.com/mylar3/mylar3).
-- Automatically populates missing metadata by querying [Anilist](https://anilist.co), [MyAnimeList](https://myanimelist.net) or [Kitsu](https://kitsu.app), bad title matches are never used.
+- Automatically populates missing metadata by querying [AniList](https://anilist.co), [Kitsu](https://kitsu.app) or [MyAnimeList](https://myanimelist.net), bad title matches are never used.
+- Syncs reading progress with AniList, Kitsu and MyAnimeList.
 - Finds a manga's directory again when its name changes (title updates, renamed providers, name templates).
 - Providers keep a history of their old ids and names, so old ids still work.
+- Gets a manga by its id without a search, for providers that support it (`MangaByIDProvider`).
 - Every request can be cancelled with a `context.Context`, errors can be checked with `errors.Is`/`errors.As`.
 - Filesystem abstraction - can be used with any filesystem that implements [afero](https://github.com/spf13/afero):
     - Remote filesystems.
@@ -63,7 +65,7 @@ See their READMEs for usage examples.
 
 ## Apps using libmangal
 
-- [mangal](https://github.com/luevano/mangal) - Advanced CLI manga downloader. Lua scrapers, export formats, anilist integration, fancy TUI and more.
+- [mangal](https://github.com/luevano/mangal) - Advanced CLI manga downloader. Lua scrapers, export formats, AniList integration, fancy TUI and more.
 
 ## Credits
 
