@@ -2,9 +2,12 @@ package kitsu
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
 
 	"github.com/luevano/libmangal/metadata"
 )
@@ -12,6 +15,91 @@ import (
 // OAuthTokenURL is the token endpoint, Kitsu only has the password grant
 // (and refreshing), no browser authorization.
 const OAuthTokenURL = "https://kitsu.app/api/oauth/token"
+
+// Token is an OAuth token of the Kitsu API.
+type Token struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	RefreshToken string `json:"refresh_token"`
+	Scope        string `json:"scope"`
+	// ExpiresIn is in seconds from CreatedAt.
+	ExpiresIn int `json:"expires_in"`
+	// CreatedAt is a unix timestamp.
+	CreatedAt int64 `json:"created_at"`
+}
+
+// Expiry is when the access token expires, zero if unknown.
+func (t Token) Expiry() time.Time {
+	if t.CreatedAt == 0 || t.ExpiresIn == 0 {
+		return time.Time{}
+	}
+	return time.Unix(t.CreatedAt+int64(t.ExpiresIn), 0)
+}
+
+// PasswordToken gets a token with the user's email (or name) and password.
+// A wrong password matches metadata.ErrUnauthorized.
+func (p *Kitsu) PasswordToken(ctx context.Context, username, password string) (Token, error) {
+	form := url.Values{}
+	form.Set("grant_type", "password")
+	form.Set("username", username)
+	form.Set("password", password)
+	token, err := p.requestToken(ctx, form)
+	if err != nil {
+		return Token{}, fmt.Errorf("get token: %w", err)
+	}
+	return token, nil
+}
+
+// RefreshToken gets a new token with the refresh token of a previous one.
+func (p *Kitsu) RefreshToken(ctx context.Context, refreshToken string) (Token, error) {
+	form := url.Values{}
+	form.Set("grant_type", "refresh_token")
+	form.Set("refresh_token", refreshToken)
+	token, err := p.requestToken(ctx, form)
+	if err != nil {
+		return Token{}, fmt.Errorf("refresh token: %w", err)
+	}
+	return token, nil
+}
+
+// LoginPassword gets a token with the user's email (or name) and password and
+// logs in with it. The token is returned to be saved (Login, RefreshToken).
+func (p *Kitsu) LoginPassword(ctx context.Context, username, password string) (Token, error) {
+	token, err := p.PasswordToken(ctx, username, password)
+	if err != nil {
+		return Token{}, fmt.Errorf("login: %w", err)
+	}
+	if err := p.Login(ctx, token.AccessToken); err != nil {
+		return Token{}, err
+	}
+	return token, nil
+}
+
+func (p *Kitsu) requestToken(ctx context.Context, form url.Values) (Token, error) {
+	if p.options.ClientID != "" {
+		form.Set("client_id", p.options.ClientID)
+		form.Set("client_secret", p.options.ClientSecret)
+	}
+	encoded := form.Encode()
+
+	var token Token
+	err := p.send(ctx, func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.tokenURL, strings.NewReader(encoded))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Accept", "application/json")
+		return req, nil
+	}, &token)
+	if err != nil {
+		return Token{}, err
+	}
+	if token.AccessToken == "" {
+		return Token{}, errors.New("kitsu: no access token in the response")
+	}
+	return token, nil
+}
 
 // Authenticated returns true if the Provider is
 // currently authenticated (user logged in).

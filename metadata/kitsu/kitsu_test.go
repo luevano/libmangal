@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -414,5 +415,80 @@ func TestMangaGob(t *testing.T) {
 	}
 	if !reflect.DeepEqual(in, out) {
 		t.Errorf("got %#v, want %#v", out, in)
+	}
+}
+
+func TestLoginPassword(t *testing.T) {
+	var form url.Values
+	k := newTestKitsu(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/oauth/token":
+			if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+				t.Errorf("got %s %q", r.Method, r.Header.Get("Content-Type"))
+			}
+			_ = r.ParseForm()
+			form = r.PostForm
+			_, _ = w.Write([]byte(`{"access_token":"access","token_type":"Bearer","expires_in":2592000,"refresh_token":"refresh","scope":"public","created_at":1791700000}`))
+		case "/api/edge/users":
+			if r.Header.Get("Authorization") != "Bearer access" {
+				t.Errorf("authorization %q", r.Header.Get("Authorization"))
+			}
+			_, _ = w.Write([]byte(selfUser))
+		default:
+			t.Errorf("unexpected %s", r.URL)
+		}
+	})
+	k.options.ClientID, k.options.ClientSecret = "id", "secret"
+
+	token, err := k.LoginPassword(context.Background(), "david@example.com", "hunter2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := url.Values{"grant_type": {"password"}, "username": {"david@example.com"}, "password": {"hunter2"}, "client_id": {"id"}, "client_secret": {"secret"}}
+	if !reflect.DeepEqual(form, want) {
+		t.Errorf("form %v, want %v", form, want)
+	}
+	if token.RefreshToken != "refresh" || !token.Expiry().Equal(time.Unix(1791700000+2592000, 0)) {
+		t.Errorf("got %+v", token)
+	}
+	if !k.Authenticated() || k.User().Name() != "David" {
+		t.Errorf("authenticated=%t user=%v", k.Authenticated(), k.User())
+	}
+}
+
+func TestLoginPasswordWrong(t *testing.T) {
+	k := newTestKitsu(t, func(w http.ResponseWriter, r *http.Request) {
+		// what Kitsu answers for a wrong password (checked 2026-10-11)
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"invalid_grant","error_description":"The provided authorization grant is invalid, expired, revoked, does not match the redirection URI used in the authorization request, or was issued to another client."}`))
+	})
+
+	_, err := k.LoginPassword(context.Background(), "david@example.com", "wrong")
+	var httpErr *HTTPError
+	if !errors.Is(err, metadata.ErrUnauthorized) || !errors.As(err, &httpErr) || httpErr.Code != "invalid_grant" || k.Authenticated() {
+		t.Errorf("got %v authenticated=%t, want unauthorized", err, k.Authenticated())
+	}
+	if !strings.HasPrefix(err.Error(), "login: get token: kitsu: POST /api/oauth/token: 400 bad request: invalid_grant: ") {
+		t.Errorf("got %q", err)
+	}
+}
+
+func TestRefreshToken(t *testing.T) {
+	var form url.Values
+	k := newTestKitsu(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		form = r.PostForm
+		_, _ = w.Write([]byte(`{"access_token":"new","refresh_token":"refresh2"}`))
+	})
+
+	token, err := k.RefreshToken(context.Background(), "refresh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if form.Get("grant_type") != "refresh_token" || form.Get("refresh_token") != "refresh" || form.Has("client_id") {
+		t.Errorf("form %v", form)
+	}
+	if token.AccessToken != "new" || !token.Expiry().IsZero() {
+		t.Errorf("got %+v", token)
 	}
 }
