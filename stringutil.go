@@ -21,13 +21,16 @@ var windowsReserved = map[string]bool{
 }
 
 func sanitizePath(path string) string {
-	return sanitizeName(path, runtime.GOOS == "windows")
+	return SanitizeName(path, invalidPathChars, runtime.GOOS == "windows")
 }
 
-// sanitizeName makes name usable as a single file or directory name.
-func sanitizeName(name string, windows bool) string {
+// SanitizeName makes name usable as a single file or directory name: control chars and
+// the invalid ones become underscores (repeated ones collapse), it's capped to 240 bytes,
+// and it's never empty, "." or "..". With windows, trailing dots and spaces go and
+// reserved names (CON, NUL, ...) get a "_" prefix.
+func SanitizeName(name, invalid string, windows bool) string {
 	name = strings.Map(func(r rune) rune {
-		if r < 0x20 || r == 0x7f || strings.ContainsRune(invalidPathChars, r) {
+		if r < 0x20 || r == 0x7f || strings.ContainsRune(invalid, r) {
 			return '_'
 		}
 		return r

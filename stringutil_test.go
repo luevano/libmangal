@@ -26,15 +26,15 @@ func TestSanitizeName(t *testing.T) {
 		{"Console", true, "Console"},
 	}
 	for _, tt := range tests {
-		if got := sanitizeName(tt.name, tt.windows); got != tt.want {
-			t.Errorf("sanitizeName(%q, %t): got %q, want %q", tt.name, tt.windows, got, tt.want)
+		if got := SanitizeName(tt.name, "/", tt.windows); got != tt.want {
+			t.Errorf("SanitizeName(%q, %t): got %q, want %q", tt.name, tt.windows, got, tt.want)
 		}
 	}
 }
 
 func TestSanitizeNameLength(t *testing.T) {
 	long := strings.Repeat("ベ", 200) // 600 bytes
-	got := sanitizeName(long, false)
+	got := SanitizeName(long, "/", false)
 	if len(got) > maxNameBytes || !utf8.ValidString(got) {
 		t.Errorf("got %d bytes, valid utf-8 %t", len(got), utf8.ValidString(got))
 	}
