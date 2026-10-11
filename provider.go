@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/mangadata"
@@ -32,6 +33,10 @@ type ProviderInfo struct {
 
 	// Website of the provider. May be empty.
 	Website string `json:"website"`
+
+	// Mirrors are other websites serving the same content, tried when Website is down.
+	// Absolute http(s) urls. May be empty.
+	Mirrors []string `json:"mirrors,omitempty"`
 
 	// History of previous ids, names and websites, newest first. May be empty.
 	//
@@ -95,8 +100,8 @@ func FindLoader(loaders []ProviderLoader, id string) (ProviderLoader, *ProviderA
 }
 
 // Validate checks if the ProviderInfo is valid.
-// This means that ID and Name are non-empty, Version is a valid semver
-// and every History entry has an ID.
+// This means that ID and Name are non-empty, Version is a valid semver,
+// every Mirror is an absolute http(s) url and every History entry has an ID.
 func (p ProviderInfo) Validate() error {
 	if p.ID == "" {
 		return errors.New("empty id")
@@ -111,6 +116,13 @@ func (p ProviderInfo) Validate() error {
 	// however, for some bizarre reason, Go semver package requires this prefix.
 	if !semver.IsValid("v" + p.Version) {
 		return fmt.Errorf("invalid semver %q", p.Version)
+	}
+
+	for _, mirror := range p.Mirrors {
+		u, err := url.Parse(mirror)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return fmt.Errorf("invalid mirror %q", mirror)
+		}
 	}
 
 	for i, alias := range p.History {
