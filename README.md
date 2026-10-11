@@ -28,7 +28,7 @@ Designed to be the backend for applications such as CLI, TUI, web apps, gRPC ser
 - Generates metadata files:
   - `ComicInfo.xml` - The ComicInfo.xml file originates from the ComicRack application, which is not developed anymore. The ComicInfo.xml however is used by a variety of applications.
   - `series.json` - A JSON file containing metadata about the series. Originates from [mylar3](https://github.com/mylar3/mylar3).
-- Automatically populates missing metadata by querying [Anilist](https://anilist.co) or [MyAnimeList](https://myanimelist.net), bad title matches are never used.
+- Automatically populates missing metadata by querying [Anilist](https://anilist.co), [MyAnimeList](https://myanimelist.net) or [Kitsu](https://kitsu.app), bad title matches are never used.
 - Finds a manga's directory again when its name changes (title updates, renamed providers, name templates).
 - Providers keep a history of their old ids and names, so old ids still work.
 - Every request can be cancelled with a `context.Context`, errors can be checked with `errors.Is`/`errors.As`.
