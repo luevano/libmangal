@@ -28,38 +28,44 @@ const (
 	CacheBucketNameIDToManga = "id-to-manga"
 )
 
+// store holds the cache buckets, opened once with the provider and closed with it.
 type store struct {
-	openStore func(bucketName string) (gokv.Store, error)
+	buckets map[string]gokv.Store
 }
 
-// get opens the bucket for a single operation, so concurrent calls don't share a handle
-// and file-backed stores aren't held open between calls.
-func (s store) get(bucketName, key string, v any) (found bool, err error) {
-	defer func() {
+func openStore(open func(bucketName string) (gokv.Store, error)) (store, error) {
+	s := store{buckets: map[string]gokv.Store{}}
+	for _, name := range []string{CacheBucketNameQueryToIDs, CacheBucketNameTitleToID, CacheBucketNameIDToManga} {
+		st, err := open(name)
 		if err != nil {
-			err = fmt.Errorf("get %s %q: %w", bucketName, key, err)
+			return store{}, errors.Join(fmt.Errorf("open %s: %w", name, err), s.close())
 		}
-	}()
-	st, err := s.openStore(bucketName)
-	if err != nil {
-		return false, err
+		s.buckets[name] = st
 	}
-	defer func() { err = errors.Join(err, st.Close()) }()
-	return st.Get(key, v)
+	return s, nil
 }
 
-func (s store) set(bucketName, key string, v any) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("set %s %q: %w", bucketName, key, err)
-		}
-	}()
-	st, err := s.openStore(bucketName)
-	if err != nil {
-		return err
+func (s store) close() error {
+	var errs []error
+	for _, st := range s.buckets {
+		errs = append(errs, st.Close())
 	}
-	defer func() { err = errors.Join(err, st.Close()) }()
-	return st.Set(key, v)
+	return errors.Join(errs...)
+}
+
+func (s store) get(bucketName, key string, v any) (bool, error) {
+	found, err := s.buckets[bucketName].Get(key, v)
+	if err != nil {
+		return false, fmt.Errorf("get %s %q: %w", bucketName, key, err)
+	}
+	return found, nil
+}
+
+func (s store) set(bucketName, key string, v any) error {
+	if err := s.buckets[bucketName].Set(key, v); err != nil {
+		return fmt.Errorf("set %s %q: %w", bucketName, key, err)
+	}
+	return nil
 }
 
 func (s store) getQueryIDs(query string) (ids []int, found bool, err error) {

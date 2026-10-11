@@ -136,10 +136,11 @@ func NewProviderWithCache(options ProviderWithCacheOptions) (*ProviderWithCache,
 		return nil, errors.New("invalid options: nil CacheStore")
 	}
 
-	s := store{
-		openStore: func(bucketName string) (gokv.Store, error) {
-			return options.CacheStore(string(options.Provider.Info().ID), bucketName)
-		},
+	s, err := openStore(func(bucketName string) (gokv.Store, error) {
+		return options.CacheStore(string(options.Provider.Info().ID), bucketName)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: cache: %w", options.Provider.Info().ID, err)
 	}
 
 	// ensure the logger is non-nil
@@ -156,6 +157,11 @@ func NewProviderWithCache(options ProviderWithCacheOptions) (*ProviderWithCache,
 	}
 
 	return p, nil
+}
+
+// Close closes the cache stores.
+func (p *ProviderWithCache) Close() error {
+	return p.store.close()
 }
 
 func (p *ProviderWithCache) cacheError(err error) error {
