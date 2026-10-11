@@ -127,6 +127,19 @@ func TestSearchByIDNotFound(t *testing.T) {
 	}
 }
 
+func TestLoginInvalidToken(t *testing.T) {
+	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+		// what AniList answers for a bad token (checked 2026-10-10)
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"Invalid token","status":400}]}`))
+	})
+
+	err := a.Login(context.Background(), "expired")
+	if !errors.Is(err, metadata.ErrUnauthorized) || a.Authenticated() {
+		t.Errorf("got %v authenticated=%t, want unauthorized", err, a.Authenticated())
+	}
+}
+
 func TestSetMangaProgress(t *testing.T) {
 	tests := []struct {
 		name       string

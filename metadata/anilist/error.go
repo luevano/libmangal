@@ -31,6 +31,9 @@ func (e *HTTPError) Is(target error) bool {
 		return target == metadata.ErrNotFound
 	case http.StatusUnauthorized:
 		return target == metadata.ErrUnauthorized
+	case http.StatusBadRequest:
+		// what AniList answers for an expired or revoked token
+		return target == metadata.ErrUnauthorized && e.Message == "Invalid token"
 	}
 	return false
 }
