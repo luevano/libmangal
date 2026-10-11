@@ -54,6 +54,9 @@ func TestDownloadChapterStatus(t *testing.T) {
 		if down.ChapterStatus != want {
 			t.Errorf("chapter status %q, want %q", down.ChapterStatus, want)
 		}
+		if down.Pages != 2 {
+			t.Errorf("%d pages, want 2", down.Pages)
+		}
 	}
 
 	options.SkipIfExists = true
@@ -61,8 +64,8 @@ func TestDownloadChapterStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if down.ChapterStatus != metadata.DownloadStatusExists {
-		t.Errorf("chapter status %q, want %q", down.ChapterStatus, metadata.DownloadStatusExists)
+	if down.ChapterStatus != metadata.DownloadStatusExists || down.Pages != 0 {
+		t.Errorf("chapter status %q, %d pages, want %q and 0 pages", down.ChapterStatus, down.Pages, metadata.DownloadStatusExists)
 	}
 }
 

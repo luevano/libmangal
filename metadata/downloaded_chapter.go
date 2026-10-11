@@ -17,6 +17,9 @@ type DownloadedChapter struct {
 	// Directory of the chapter, under DownloadOptions.Directory.
 	Directory string `json:"directory"`
 
+	// Pages is how many pages were downloaded, 0 if the chapter was skipped (already downloaded).
+	Pages int `json:"pages"`
+
 	// ChapterStatus is the status of the downloaded chapter.
 	ChapterStatus DownloadStatus `json:"chapter_status"`
 
