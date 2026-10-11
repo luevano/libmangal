@@ -297,3 +297,33 @@ func (c *Client) rememberMangaDir(parent, name string, info MangaDirInfo) error 
 	}
 	return nil
 }
+
+// WriteMangaDirInfo writes info as the FilenameMangaDirInfo of dir, atomically (a temp
+// file renamed over it), so a crash never leaves a truncated one.
+func WriteMangaDirInfo(fsys afero.Fs, dir string, info MangaDirInfo, mode fs.FileMode) error {
+	data, err := json.MarshalIndent(info, "", "  ")
+	if err != nil {
+		return fmt.Errorf("%s: %w", FilenameMangaDirInfo, err)
+	}
+	tmp, err := afero.TempFile(fsys, dir, FilenameMangaDirInfo+".*.tmp")
+	if err != nil {
+		return err
+	}
+	_, err = tmp.Write(data)
+	if err == nil {
+		err = tmp.Sync()
+	}
+	if closeErr := tmp.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = fsys.Chmod(tmp.Name(), mode)
+	}
+	if err == nil {
+		err = fsys.Rename(tmp.Name(), filepath.Join(dir, FilenameMangaDirInfo))
+	}
+	if err != nil {
+		_ = fsys.Remove(tmp.Name())
+	}
+	return err
+}

@@ -3,7 +3,6 @@ package libmangal
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -107,11 +106,7 @@ func (c *Client) downloadChapterWithMetadata(
 
 	manga := chapter.Volume().Manga()
 	if dirs.manga != "" {
-		info, err := json.MarshalIndent(newMangaDirInfo(c.Info(), manga), "", "  ")
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", FilenameMangaDirInfo, err)
-		}
-		if err := afero.WriteFile(c.options.FS, filepath.Join(dirs.manga, FilenameMangaDirInfo), info, c.options.ModeFile); err != nil {
+		if err := WriteMangaDirInfo(c.options.FS, dirs.manga, newMangaDirInfo(c.Info(), manga), c.options.ModeFile); err != nil {
 			return nil, err
 		}
 	}

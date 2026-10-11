@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/luevano/libmangal/mangadata"
+	"github.com/spf13/afero"
 )
 
 // newNamedClient names manga directories with name, like a name template.
@@ -206,5 +207,25 @@ func TestMangaDirIndex(t *testing.T) {
 	}
 	if _, ok := index.dirs[filepath.Join(options.Directory, "Marked")]; !ok {
 		t.Errorf("marker match not added to the index: %v", index.dirs)
+	}
+}
+
+func TestWriteMangaDirInfo(t *testing.T) {
+	fsys := afero.NewMemMapFs()
+	if err := fsys.MkdirAll("/m", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	info := MangaDirInfo{Provider: "p", Manga: mangadata.MangaInfo{ID: "x", Title: "X"}}
+	if err := WriteMangaDirInfo(fsys, "/m", info, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ReadMangaDirInfo(fsys, "/m")
+	if err != nil || got.Provider != "p" || got.Manga.ID != "x" {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	// only the file itself is left, no temp files
+	entries, _ := afero.ReadDir(fsys, "/m")
+	if len(entries) != 1 || entries[0].Name() != FilenameMangaDirInfo {
+		t.Errorf("entries %v", entries)
 	}
 }
