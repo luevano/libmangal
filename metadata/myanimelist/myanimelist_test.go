@@ -3,9 +3,11 @@ package myanimelist
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/luevano/libmangal/metadata"
@@ -115,5 +117,25 @@ func TestSearchSkipsNovels(t *testing.T) {
 	}
 	if len(metas) != 1 || metas[0].ID().Value() != 2 {
 		t.Errorf("got %v, want only the manhwa", metas)
+	}
+}
+
+func TestCapQuery(t *testing.T) {
+	long := strings.Repeat("あ", 70)
+	if got := []rune(capQuery(long)); len(got) != maxQueryRunes {
+		t.Errorf("got %d runes", len(got))
+	}
+	if got := capQuery("One Piece"); got != "One Piece" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestInvalidClientID(t *testing.T) {
+	err := fmt.Errorf("search: %w", &HTTPError{StatusCode: http.StatusBadRequest, Message: "invalid_request: Invalid client id"})
+	if !errors.Is(err, ErrInvalidClientID) || errors.Is(err, metadata.ErrUnauthorized) {
+		t.Errorf("got %v", err)
+	}
+	if errors.Is(&HTTPError{StatusCode: http.StatusBadRequest, Message: "bad q"}, ErrInvalidClientID) {
+		t.Error("any 400 isn't a bad client id")
 	}
 }

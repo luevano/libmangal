@@ -112,7 +112,7 @@ func (p *MyAnimeList) SearchByID(ctx context.Context, id int) (metadata.Metadata
 // Implementation should only handle the request and marshaling.
 func (p *MyAnimeList) Search(ctx context.Context, query string) ([]metadata.Metadata, error) {
 	params := p.commonMangaReqParams()
-	params.Set("q", query)
+	params.Set("q", capQuery(query))
 	params.Set("offset", "0")
 	params.Set("limit", "30")
 
@@ -186,4 +186,15 @@ func (p *MyAnimeList) SetMangaProgress(ctx context.Context, id, chapterNumber in
 // nil User means non-authenticated.
 func (p *MyAnimeList) User() metadata.User {
 	return p.user
+}
+
+// maxQueryRunes: longer titles (e.g. light novel style ones) are cut, the API is known to
+// refuse long queries (the limit isn't documented, 64 is what other clients use).
+const maxQueryRunes = 64
+
+func capQuery(query string) string {
+	if r := []rune(query); len(r) > maxQueryRunes {
+		return strings.TrimSpace(string(r[:maxQueryRunes]))
+	}
+	return query
 }

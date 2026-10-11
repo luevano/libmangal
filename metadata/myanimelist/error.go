@@ -1,6 +1,7 @@
 package myanimelist
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -27,7 +28,14 @@ func (e *HTTPError) Error() string {
 	return msg
 }
 
+// ErrInvalidClientID: MyAnimeList doesn't know the API client id (Options.ClientID).
+var ErrInvalidClientID = errors.New("mal: invalid client id")
+
 func (e *HTTPError) Is(target error) bool {
+	if target == ErrInvalidClientID {
+		msg := strings.ToLower(e.Message)
+		return e.StatusCode == http.StatusBadRequest && (strings.Contains(msg, "invalid client id") || strings.Contains(msg, "invalid_client"))
+	}
 	switch e.StatusCode {
 	case http.StatusNotFound:
 		return target == metadata.ErrNotFound
