@@ -26,6 +26,7 @@ func TestScore(t *testing.T) {
 		{"full width", Query{Titles: []string{"ＢＥＲＳＥＲＫ"}}, &titledMeta{fakeMeta: fakeMeta{title: "Berserk"}}, true},
 		{"alternate title", Query{Titles: []string{"Ore dake Level Up na Ken"}}, &titledMeta{fakeMeta: fakeMeta{title: "Solo Leveling"}, alt: []string{"Ore dake Level Up na Ken"}}, true},
 		{"query alternate title", Query{Titles: []string{"Only I Level Up", "Solo Leveling"}}, &titledMeta{fakeMeta: fakeMeta{title: "Solo Leveling"}}, true},
+		{"aside", Query{Titles: []string{"KAIJU NO.8 (Monster #8)"}}, &titledMeta{fakeMeta: fakeMeta{title: "Kaiju No. 8"}}, true},
 		{"spin-off", Query{Titles: []string{"Kaiju No. 8"}}, &titledMeta{fakeMeta: fakeMeta{title: "Kaiju No. 8: B-Side"}}, false},
 		{"other work", Query{Titles: []string{"Berserk"}}, &titledMeta{fakeMeta: fakeMeta{title: "Berserk of Gluttony"}}, false},
 		{"years apart", Query{Titles: []string{"One Piece"}, Year: 2019}, &titledMeta{fakeMeta: fakeMeta{title: "ONE PIECE"}, year: 1997}, true},
@@ -87,6 +88,15 @@ func TestFindClosest(t *testing.T) {
 		}
 		if _, ok, _ := p.store.getTitleID("Kaiju No. 8"); ok {
 			t.Error("bad match was bound to the title")
+		}
+	})
+
+	t.Run("searches the title without its aside", func(t *testing.T) {
+		fake := &fakeProvider{byQuery: map[string][]Metadata{"KAIJU NO.8": {kaiju}}}
+		p := newTestProvider(t, fake)
+		match, found, err := p.FindClosest(Query{Titles: []string{"KAIJU NO.8 (Monster #8)"}})
+		if err != nil || !found || match.Metadata != kaiju || match.Bad() {
+			t.Fatalf("got %+v found=%t err=%v, searched %q", match, found, err, fake.queries)
 		}
 	})
 

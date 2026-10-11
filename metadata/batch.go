@@ -165,8 +165,11 @@ func (p *ProviderWithCache) FindClosestManyContext(ctx context.Context, queries 
 	var boundIDs []int
 	for i, query := range queries {
 		for _, t := range query.Titles {
-			if strings.TrimSpace(t) != "" && len(titles[i]) < maxMatchSearches {
-				titles[i] = append(titles[i], t)
+			// sites often add an english title in parentheses, which metadata searches miss
+			for _, variant := range []string{t, strings.TrimSpace(asides.ReplaceAllString(t, ""))} {
+				if strings.TrimSpace(variant) != "" && len(titles[i]) < maxMatchSearches && !slices.Contains(titles[i], variant) {
+					titles[i] = append(titles[i], variant)
+				}
 			}
 		}
 		if len(titles[i]) == 0 {

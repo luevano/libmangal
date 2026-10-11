@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 	"unicode"
@@ -83,11 +84,17 @@ func score(queryTitles []string, year int, m Metadata) float64 {
 	return max(best, 0)
 }
 
+// asides are parts in parentheses or brackets, e.g. MangaPlus' "KAIJU NO.8 (Monster #8)"
+var asides = regexp.MustCompile(`\s*[(\[][^)\]]*[)\]]`)
+
+// normalizeAll normalizes the titles, also without their asides.
 func normalizeAll(titles []string) []string {
 	var normalized []string
 	for _, t := range titles {
-		if n := normalize(t); n != "" {
-			normalized = append(normalized, n)
+		for _, variant := range []string{t, asides.ReplaceAllString(t, "")} {
+			if n := normalize(variant); n != "" && !slices.Contains(normalized, n) {
+				normalized = append(normalized, n)
+			}
 		}
 	}
 	return normalized
