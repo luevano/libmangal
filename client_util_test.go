@@ -85,8 +85,13 @@ func TestMangaImageReferer(t *testing.T) {
 	if err := c.downloadMangaImage(context.Background(), manga, mangaImageCover, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if referer != manga.info.URL {
-		t.Errorf("provider cover sent referer %q, want %q", referer, manga.info.URL)
+	// only the origin, like a browser (2xstorage.com refuses the manga page as referer)
+	manga.info.URL = "https://site.example/manga/berserk?x=1"
+	if err := c.downloadMangaImage(context.Background(), manga, mangaImageCover, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if want := "https://site.example/"; referer != want {
+		t.Errorf("provider cover sent referer %q, want %q", referer, want)
 	}
 }
 

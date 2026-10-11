@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -216,7 +217,8 @@ func (c *Client) saveZIP(
 //
 // For example this can be either banner image or cover image.
 //
-// The manga page is sent as the Referer for images that come from the provider.
+// The manga page's origin is sent as the Referer for images that come from the provider,
+// like a browser does for cross-origin images (some image hosts refuse the full page url).
 func (c *Client) downloadMangaImage(
 	ctx context.Context,
 	manga mangadata.Manga,
@@ -245,7 +247,9 @@ func (c *Client) downloadMangaImage(
 	}
 
 	if fromProvider {
-		request.Header.Set("Referer", manga.Info().URL)
+		if referer := origin(manga.Info().URL); referer != "" {
+			request.Header.Set("Referer", referer)
+		}
 	}
 	request.Header.Set("User-Agent", c.options.UserAgent)
 	request.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
@@ -265,6 +269,15 @@ func (c *Client) downloadMangaImage(
 		return fmt.Errorf("download %s: %w", mangaImage, err)
 	}
 	return nil
+}
+
+// origin of rawURL ("https://host/"), empty if it isn't an absolute url.
+func origin(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host + "/"
 }
 
 // getCover returns the cover image URL, and whether it's the provider's
