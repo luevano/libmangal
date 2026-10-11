@@ -231,7 +231,7 @@ func hasTitle(query metadata.Query) bool {
 //
 // E.g. `xdg-open` for Linux.
 //
-// It will also set the reading progress on Anilist and MyAnimeList
+// It will also set the reading progress on Anilist, MyAnimeList and Kitsu
 // if enabled in the ReadOptions.
 //
 // Note, that underlying filesystem must be mapped with OsFs
@@ -258,6 +258,7 @@ func (c *Client) ReadChapterContext(
 	sync := map[metadata.IDSource]bool{
 		metadata.IDSourceAnilist:     options.SaveAnilist,
 		metadata.IDSourceMyAnimeList: options.SaveMyAnimeList,
+		metadata.IDSourceKitsu:       options.SaveKitsu,
 	}
 	progress := int(math.Trunc(float64(chapter.Info().Number)))
 	manga := chapter.Volume().Manga()

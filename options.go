@@ -29,6 +29,9 @@ type ReadOptions struct {
 
 	// SaveMyAnimeList will set the MyAnimeList reading progress, needs to be logged in.
 	SaveMyAnimeList bool
+
+	// SaveKitsu will set the Kitsu reading progress, needs to be logged in.
+	SaveKitsu bool
 }
 
 // DefaultReadOptions constructs default ReadOptions.
@@ -37,6 +40,7 @@ func DefaultReadOptions() ReadOptions {
 		SaveHistory:     false,
 		SaveAnilist:     false,
 		SaveMyAnimeList: false,
+		SaveKitsu:       false,
 	}
 }
 

@@ -92,28 +92,30 @@ func TestReadChapterSyncsEnabledProviders(t *testing.T) {
 	openFile = func(string) error { return nil }
 	t.Cleanup(func() { openFile = open.Run })
 
-	newProviders := func() (*fakeMetaProvider, *fakeMetaProvider) {
+	newProviders := func() (*fakeMetaProvider, *fakeMetaProvider, *fakeMetaProvider) {
 		ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(7, "Fake Manga")}}}
 		mal := &fakeMetaProvider{source: metadata.IDSourceMyAnimeList, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(8, "Fake Manga")}}}
-		return ani, mal
+		kitsu := &fakeMetaProvider{source: metadata.IDSourceKitsu, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(9, "Fake Manga")}}}
+		return ani, mal, kitsu
 	}
 	chapter := newFakeChapter(nil, 1)
 	chapter.info.Number = 12.5
 
 	tests := []struct {
-		name             string
-		options          ReadOptions
-		wantAni, wantMAL bool
+		name                        string
+		options                     ReadOptions
+		wantAni, wantMAL, wantKitsu bool
 	}{
-		{"anilist only", ReadOptions{SaveAnilist: true}, true, false},
-		{"mal only", ReadOptions{SaveMyAnimeList: true}, false, true},
-		{"both", ReadOptions{SaveAnilist: true, SaveMyAnimeList: true}, true, true},
-		{"none", ReadOptions{SaveHistory: true}, false, false},
+		{"anilist only", ReadOptions{SaveAnilist: true}, true, false, false},
+		{"mal only", ReadOptions{SaveMyAnimeList: true}, false, true, false},
+		{"kitsu only", ReadOptions{SaveKitsu: true}, false, false, true},
+		{"all", ReadOptions{SaveAnilist: true, SaveMyAnimeList: true, SaveKitsu: true}, true, true, true},
+		{"none", ReadOptions{SaveHistory: true}, false, false, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ani, mal := newProviders()
-			c := newTestClient(t, ani, mal)
+			ani, mal, kitsu := newProviders()
+			c := newTestClient(t, ani, mal, kitsu)
 			if err := c.ReadChapterContext(context.Background(), "x.cbz", chapter, tt.options); err != nil {
 				t.Fatal(err)
 			}
@@ -122,6 +124,9 @@ func TestReadChapterSyncsEnabledProviders(t *testing.T) {
 			}
 			if got := mal.progress[8] == 12; got != tt.wantMAL {
 				t.Errorf("mal progress %v, want set=%t", mal.progress, tt.wantMAL)
+			}
+			if got := kitsu.progress[9] == 12; got != tt.wantKitsu {
+				t.Errorf("kitsu progress %v, want set=%t", kitsu.progress, tt.wantKitsu)
 			}
 		})
 	}
