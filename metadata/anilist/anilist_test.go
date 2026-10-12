@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/progress"
 )
 
 func newTestAnilist(t *testing.T, handler http.HandlerFunc) *Anilist {
@@ -39,9 +40,14 @@ func TestRateLimitRetry(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"page":{"media":[]}}}`))
 	})
 
+	var reported []string
+	ctx := progress.WithReporter(context.Background(), func(s progress.Status) { reported = append(reported, s.String()) })
 	start := time.Now()
-	if _, err := a.Search(context.Background(), "berserk"); err != nil {
+	if _, err := a.Search(ctx, "berserk"); err != nil {
 		t.Fatal(err)
+	}
+	if want := "AniList rate limited, retrying in 1s"; len(reported) != 1 || reported[0] != want {
+		t.Errorf("reported %q, want %q", reported, want)
 	}
 	if waited := time.Since(start); waited < time.Second {
 		t.Errorf("retried after %s, want the 1s from Retry-After", waited)

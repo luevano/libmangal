@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/luevano/libmangal/progress"
 )
 
 const contentType = "application/vnd.api+json"
@@ -140,7 +142,9 @@ func (p *Kitsu) send(ctx context.Context, newReq func() (*http.Request, error), 
 			return err
 		}
 
-		p.logger.Log("rate limited, retrying in %s", rateLimit.RetryAfter)
+		msg := fmt.Sprintf("Kitsu rate limited, retrying in %s", rateLimit.RetryAfter)
+		p.logger.Log("%s", msg)
+		progress.Report(ctx, progress.Status{Source: info.ID, Message: msg})
 		select {
 		case <-time.After(rateLimit.RetryAfter):
 		case <-ctx.Done():

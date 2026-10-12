@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/progress"
 )
 
 var _ metadata.Batcher = (*Anilist)(nil)
@@ -22,8 +23,10 @@ const (
 // (searchesPerRequest per request), the results are in the order of the queries.
 func (p *Anilist) SearchMany(ctx context.Context, queries []string) ([][]metadata.Metadata, error) {
 	results := make([][]metadata.Metadata, 0, len(queries))
+	requests := (len(queries) + searchesPerRequest - 1) / searchesPerRequest
 	for start := 0; start < len(queries); start += searchesPerRequest {
 		chunk := queries[start:min(start+searchesPerRequest, len(queries))]
+		reportRequest(ctx, "searching AniList", start/searchesPerRequest+1, requests)
 
 		var decl, fields strings.Builder
 		vars := map[string]any{}
@@ -59,8 +62,10 @@ func (p *Anilist) SearchMany(ctx context.Context, queries []string) ([][]metadat
 // unknown ids are left out.
 func (p *Anilist) SearchByIDs(ctx context.Context, ids []int) (map[int]metadata.Metadata, error) {
 	found := make(map[int]metadata.Metadata, len(ids))
+	requests := (len(ids) + idsPerRequest - 1) / idsPerRequest
 	for start := 0; start < len(ids); start += idsPerRequest {
 		chunk := ids[start:min(start+idsPerRequest, len(ids))]
+		reportRequest(ctx, "looking up AniList metadata", start/idsPerRequest+1, requests)
 		body := apiRequestBody{
 			Query: `
 query ($ids: [Int]) {
@@ -81,4 +86,11 @@ query ($ids: [Int]) {
 		}
 	}
 	return found, nil
+}
+
+// reportRequest reports the request of a batch, when it takes more than one.
+func reportRequest(ctx context.Context, doing string, request, requests int) {
+	if requests > 1 {
+		progress.Report(ctx, progress.Status{Source: info.ID, Message: doing + ": request", Done: request, Total: requests})
+	}
 }

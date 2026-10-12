@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/luevano/libmangal/progress"
 )
 
 type apiRequestBody struct {
@@ -39,7 +41,9 @@ func sendRequest[Data any](
 			return data, err
 		}
 
-		anilist.logger.Log("rate limited, retrying in %s", rateLimit.RetryAfter)
+		msg := fmt.Sprintf("AniList rate limited, retrying in %s", rateLimit.RetryAfter)
+		anilist.logger.Log("%s", msg)
+		progress.Report(ctx, progress.Status{Source: info.ID, Message: msg})
 		select {
 		case <-time.After(rateLimit.RetryAfter):
 		case <-ctx.Done():
