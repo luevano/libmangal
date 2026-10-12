@@ -59,12 +59,17 @@ func (e *RateLimitError) RetryAfterDuration() time.Duration {
 // retryAfter: How long to wait after a 429.
 //
 // https://docs.anilist.co/guide/rate-limiting
+//
+// AniList sometimes answers "Retry-After: 0" while still limiting: a hint that isn't in the
+// future counts as none.
 func retryAfter(header http.Header) time.Duration {
-	if secs, err := strconv.Atoi(header.Get("Retry-After")); err == nil {
+	if secs, err := strconv.Atoi(header.Get("Retry-After")); err == nil && secs > 0 {
 		return time.Duration(secs) * time.Second
 	}
 	if reset, err := strconv.ParseInt(header.Get("X-RateLimit-Reset"), 10, 64); err == nil {
-		return max(time.Second, time.Until(time.Unix(reset, 0)).Round(time.Second))
+		if wait := time.Until(time.Unix(reset, 0)).Round(time.Second); wait > 0 {
+			return wait
+		}
 	}
 	// no hint, the limit is per minute
 	return time.Minute

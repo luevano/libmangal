@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -72,7 +73,7 @@ func TestRateLimitRetryCancel(t *testing.T) {
 
 func TestRateLimitError(t *testing.T) {
 	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Retry-After", "0")
+		w.Header().Set("Retry-After", "1")
 		w.Header().Set("X-RateLimit-Remaining", "0")
 		w.WriteHeader(http.StatusTooManyRequests)
 	})
@@ -82,11 +83,38 @@ func TestRateLimitError(t *testing.T) {
 	if !errors.As(err, &rateLimit) || !errors.Is(err, metadata.ErrRateLimited) {
 		t.Fatalf("got %v, want a RateLimitError", err)
 	}
-	if rateLimit.RetryAfterDuration() != 0 {
-		t.Errorf("retry after %s, want 0s", rateLimit.RetryAfter)
+	if rateLimit.RetryAfterDuration() != time.Second {
+		t.Errorf("retry after %s, want 1s", rateLimit.RetryAfter)
 	}
-	if want := `search "berserk": anilist: 429 too many requests (retry after 0s)`; err.Error() != want {
+	if want := `search "berserk": anilist: 429 too many requests (retry after 1s)`; err.Error() != want {
 		t.Errorf("got %q, want %q", err, want)
+	}
+}
+
+func TestRetryAfter(t *testing.T) {
+	future := strconv.FormatInt(time.Now().Add(30*time.Second).Unix(), 10)
+	past := strconv.FormatInt(time.Now().Add(-time.Minute).Unix(), 10)
+	for _, c := range []struct {
+		retryAfter, reset string
+		min, max          time.Duration
+	}{
+		{"5", "", 5 * time.Second, 5 * time.Second},
+		// "retry after 0s" while limited: the reset, else a minute
+		{"0", future, 29 * time.Second, 31 * time.Second},
+		{"0", "", time.Minute, time.Minute},
+		{"0", past, time.Minute, time.Minute},
+		{"", "", time.Minute, time.Minute},
+	} {
+		h := http.Header{}
+		if c.retryAfter != "" {
+			h.Set("Retry-After", c.retryAfter)
+		}
+		if c.reset != "" {
+			h.Set("X-RateLimit-Reset", c.reset)
+		}
+		if got := retryAfter(h); got < c.min || got > c.max {
+			t.Errorf("Retry-After %q, reset %q: %s, want %s-%s", c.retryAfter, c.reset, got, c.min, c.max)
+		}
 	}
 }
 

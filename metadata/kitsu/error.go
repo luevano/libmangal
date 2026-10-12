@@ -91,7 +91,8 @@ func (e errorResponse) codeMessage() (code, message string) {
 }
 
 func retryAfter(header http.Header) time.Duration {
-	if secs, err := strconv.Atoi(header.Get("Retry-After")); err == nil {
+	// a hint that isn't in the future counts as none
+	if secs, err := strconv.Atoi(header.Get("Retry-After")); err == nil && secs > 0 {
 		return time.Duration(secs) * time.Second
 	}
 	// no documented limits

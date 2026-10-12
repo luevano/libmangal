@@ -203,7 +203,7 @@ func TestRateLimitRetry(t *testing.T) {
 
 func TestRateLimitError(t *testing.T) {
 	k := newTestKitsu(t, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Retry-After", "0")
+		w.Header().Set("Retry-After", "1")
 		w.WriteHeader(http.StatusTooManyRequests)
 	})
 
@@ -212,8 +212,11 @@ func TestRateLimitError(t *testing.T) {
 	if !errors.As(err, &rateLimit) || !errors.Is(err, metadata.ErrRateLimited) {
 		t.Fatalf("got %v, want a RateLimitError", err)
 	}
-	if want := `search "berserk": kitsu: GET /api/edge/manga: 429 too many requests (retry after 0s)`; err.Error() != want {
+	if want := `search "berserk": kitsu: GET /api/edge/manga: 429 too many requests (retry after 1s)`; err.Error() != want {
 		t.Errorf("got %q, want %q", err, want)
+	}
+	if got := retryAfter(http.Header{"Retry-After": {"0"}}); got != time.Minute {
+		t.Errorf("Retry-After 0: %s, want a minute", got)
 	}
 }
 
