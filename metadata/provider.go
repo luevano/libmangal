@@ -363,3 +363,11 @@ type Batcher interface {
 	// SearchByIDs gets the metadata of several ids, unknown ids are left out.
 	SearchByIDs(ctx context.Context, ids []int) (map[int]Metadata, error)
 }
+
+// IDMapper is a Provider that knows which of its mangas other sources' ids are,
+// ProviderWithCache.IDsFrom uses it.
+type IDMapper interface {
+	// IDsFrom maps ids of another source (e.g. IDCodeAnilist) to the provider's ids,
+	// unknown ones are left out. An unsupported source is an errors.ErrUnsupported.
+	IDsFrom(ctx context.Context, code IDCode, ids []int) (map[int]int, error)
+}

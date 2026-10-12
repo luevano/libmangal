@@ -2,6 +2,8 @@ package metadata
 
 import (
 	"context"
+	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -110,5 +112,52 @@ func TestRefreshByIDs(t *testing.T) {
 	}
 	if got, _ := p.SearchByIDsContext(ctx, []int{1}); got[1].String() != "Renamed" || fake.idsCalls != 2 {
 		t.Errorf("not cached: %v, %d calls", got, fake.idsCalls)
+	}
+}
+
+// fakeMapper is a fakeProvider that maps AniList ids, counting the calls.
+type fakeMapper struct {
+	*fakeProvider
+	ids   map[int]int
+	calls [][]int
+}
+
+func (p *fakeMapper) IDsFrom(ctx context.Context, code IDCode, ids []int) (map[int]int, error) {
+	if code != IDCodeAnilist {
+		return nil, errors.ErrUnsupported
+	}
+	p.calls = append(p.calls, ids)
+	found := map[int]int{}
+	for _, id := range ids {
+		if mapped, ok := p.ids[id]; ok {
+			found[id] = mapped
+		}
+	}
+	return found, nil
+}
+
+func TestIDsFrom(t *testing.T) {
+	fake := &fakeMapper{fakeProvider: &fakeProvider{}, ids: map[int]int{30002: 8, 31133: 2435}}
+	p := newTestProvider(t, fake.fakeProvider)
+	ctx := context.Background()
+	if _, err := p.IDsFromContext(ctx, IDCodeAnilist, []int{1}); !errors.Is(err, errors.ErrUnsupported) {
+		t.Errorf("not a mapper: %v, want ErrUnsupported", err)
+	}
+	p.provider = fake
+
+	got, err := p.IDsFromContext(ctx, IDCodeAnilist, []int{30002, 1, 30002})
+	if err != nil || !reflect.DeepEqual(got, map[int]int{30002: 8}) {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	// the found one is cached, the unknown one asked again with the new one
+	got, err = p.IDsFromContext(ctx, IDCodeAnilist, []int{30002, 1, 31133})
+	if err != nil || !reflect.DeepEqual(got, map[int]int{30002: 8, 31133: 2435}) {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	if want := [][]int{{30002, 1}, {1, 31133}}; !reflect.DeepEqual(fake.calls, want) {
+		t.Errorf("calls %v, want %v", fake.calls, want)
+	}
+	if _, err := p.IDsFromContext(ctx, IDCodeMyAnimeList, []int{2}); !errors.Is(err, errors.ErrUnsupported) {
+		t.Errorf("mal: %v, want ErrUnsupported", err)
 	}
 }

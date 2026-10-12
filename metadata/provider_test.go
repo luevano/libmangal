@@ -144,11 +144,11 @@ func TestStoreOpenedOnce(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if opens != 3 || closes != 0 {
-		t.Errorf("%d opens, %d closes after 3 searches, want 3 (one per bucket) and 0", opens, closes)
+	if opens != 4 || closes != 0 {
+		t.Errorf("%d opens, %d closes after 3 searches, want 4 (one per bucket) and 0", opens, closes)
 	}
-	if err := p.Close(); err != nil || closes != 3 {
-		t.Errorf("close: %v, %d closes, want 3", err, closes)
+	if err := p.Close(); err != nil || closes != 4 {
+		t.Errorf("close: %v, %d closes, want 4", err, closes)
 	}
 }
 

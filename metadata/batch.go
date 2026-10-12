@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -147,6 +148,51 @@ func (p *ProviderWithCache) RefreshByIDsContext(ctx context.Context, ids []int) 
 	}
 	if err := p.fetchByIDs(ctx, unique, found); err != nil {
 		return nil, err
+	}
+	return found, nil
+}
+
+// IDsFrom maps ids of another source (e.g. IDCodeAnilist) to the provider's ids, using the
+// cache and asking the provider for the rest when it's an IDMapper (else
+// errors.ErrUnsupported). Unknown ids are left out.
+func (p *ProviderWithCache) IDsFrom(code IDCode, ids []int) (map[int]int, error) {
+	return p.IDsFromContext(context.Background(), code, ids)
+}
+
+// IDsFromContext is IDsFrom with a context.
+func (p *ProviderWithCache) IDsFromContext(ctx context.Context, code IDCode, ids []int) (map[int]int, error) {
+	mapper, ok := p.provider.(IDMapper)
+	if !ok {
+		return nil, fmt.Errorf("%s: map %s ids: %w", p.Info().ID, code, errors.ErrUnsupported)
+	}
+	found := make(map[int]int, len(ids))
+	var missing []int
+	for _, external := range ids {
+		if _, ok := found[external]; ok || slices.Contains(missing, external) {
+			continue
+		}
+		id, ok, err := p.store.getExternalID(code, external)
+		if err != nil {
+			return nil, p.cacheError(err)
+		}
+		if ok {
+			found[external] = id
+		} else {
+			missing = append(missing, external)
+		}
+	}
+	if len(missing) == 0 {
+		return found, nil
+	}
+	fetched, err := mapper.IDsFrom(ctx, code, missing)
+	if err != nil {
+		return nil, err
+	}
+	for external, id := range fetched {
+		if err := p.store.setExternalID(code, external, id); err != nil {
+			return nil, p.cacheError(err)
+		}
+		found[external] = id
 	}
 	return found, nil
 }

@@ -26,6 +26,11 @@ const (
 	//
 	// [7 => "{title: ..., image: ..., ...}"]
 	CacheBucketNameIDToManga = "id-to-manga"
+
+	// ExternalToID maps another source's id (code:id) to the provider's id, for IDMapper.
+	//
+	// ["al:30002" => 8, "mal:2" => 8]
+	CacheBucketNameExternalToID = "external-to-id"
 )
 
 // store holds the cache buckets, opened once with the provider and closed with it.
@@ -35,7 +40,7 @@ type store struct {
 
 func openStore(open func(bucketName string) (gokv.Store, error)) (store, error) {
 	s := store{buckets: map[string]gokv.Store{}}
-	for _, name := range []string{CacheBucketNameQueryToIDs, CacheBucketNameTitleToID, CacheBucketNameIDToManga} {
+	for _, name := range []string{CacheBucketNameQueryToIDs, CacheBucketNameTitleToID, CacheBucketNameIDToManga, CacheBucketNameExternalToID} {
 		st, err := open(name)
 		if err != nil {
 			return store{}, errors.Join(fmt.Errorf("open %s: %w", name, err), s.close())
@@ -93,6 +98,19 @@ func (s store) getMeta(id int) (manga Metadata, found bool, err error) {
 
 func (s store) setMeta(id int, manga Metadata) error {
 	return s.set(CacheBucketNameIDToManga, strconv.Itoa(id), &manga)
+}
+
+func externalKey(code IDCode, id int) string {
+	return string(code) + ":" + strconv.Itoa(id)
+}
+
+func (s store) getExternalID(code IDCode, external int) (id int, found bool, err error) {
+	found, err = s.get(CacheBucketNameExternalToID, externalKey(code, external), &id)
+	return
+}
+
+func (s store) setExternalID(code IDCode, external, id int) error {
+	return s.set(CacheBucketNameExternalToID, externalKey(code, external), id)
 }
 
 // memStore is an in-memory gokv.Store that keeps the values themselves instead of
