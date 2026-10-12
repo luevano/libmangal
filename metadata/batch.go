@@ -127,6 +127,25 @@ func (p *ProviderWithCache) SearchByIDsContext(ctx context.Context, ids []int) (
 	return found, nil
 }
 
+// CachedByIDs is the cached metadata of the ids, without asking the provider: ids not
+// cached (or expired) are left out.
+func (p *ProviderWithCache) CachedByIDs(ids []int) (map[int]Metadata, error) {
+	found := make(map[int]Metadata, len(ids))
+	for _, id := range ids {
+		if _, ok := found[id]; ok {
+			continue
+		}
+		meta, ok, err := p.store.getMeta(id)
+		if err != nil {
+			return nil, p.cacheError(err)
+		}
+		if ok {
+			found[id] = meta
+		}
+	}
+	return found, nil
+}
+
 // RefreshByIDs gets the metadata of several ids from the provider, not the cache
 // (batched when the provider is a Batcher), and caches what it got. Unknown ids are left
 // out.

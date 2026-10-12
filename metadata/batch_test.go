@@ -115,6 +115,19 @@ func TestRefreshByIDs(t *testing.T) {
 	}
 }
 
+func TestCachedByIDs(t *testing.T) {
+	fake := &fakeBatcher{fakeProvider: &fakeProvider{byID: map[int]Metadata{1: &fakeMeta{id: 1, title: "One"}, 2: &fakeMeta{id: 2, title: "Two"}}}}
+	p := newTestProvider(t, fake.fakeProvider)
+	p.provider = fake
+	if _, err := p.SearchByIDsContext(context.Background(), []int{1}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := p.CachedByIDs([]int{1, 2, 1})
+	if err != nil || len(got) != 1 || got[1].String() != "One" || fake.idsCalls != 1 {
+		t.Errorf("cached: %v, %v, %d calls", got, err, fake.idsCalls)
+	}
+}
+
 // fakeMapper is a fakeProvider that maps AniList ids, counting the calls.
 type fakeMapper struct {
 	*fakeProvider
