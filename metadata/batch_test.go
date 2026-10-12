@@ -87,3 +87,28 @@ func TestFindClosestManyBatches(t *testing.T) {
 		t.Errorf("not cached: %d batched searches, %d id lookups", fake.manyCalls, fake.idsCalls)
 	}
 }
+
+func TestRefreshByIDs(t *testing.T) {
+	old := &fakeMeta{id: 1, title: "Old"}
+	fake := &fakeBatcher{fakeProvider: &fakeProvider{byID: map[int]Metadata{1: old}}}
+	p := newTestProvider(t, fake.fakeProvider)
+	p.provider = fake
+	ctx := context.Background()
+	if _, err := p.SearchByIDsContext(ctx, []int{1}); err != nil {
+		t.Fatal(err)
+	}
+	renamed := &fakeMeta{id: 1, title: "Renamed"}
+	fake.byID[1] = renamed
+
+	// the cache has the old one, a refresh asks again
+	if got, err := p.SearchByIDsContext(ctx, []int{1}); err != nil || got[1].String() != "Old" || fake.idsCalls != 1 {
+		t.Fatalf("cached: %v, %v, %d calls", got, err, fake.idsCalls)
+	}
+	got, err := p.RefreshByIDsContext(ctx, []int{1, 1, 2})
+	if err != nil || len(got) != 1 || got[1].String() != "Renamed" || fake.idsCalls != 2 {
+		t.Fatalf("refreshed: %v, %v, %d calls", got, err, fake.idsCalls)
+	}
+	if got, _ := p.SearchByIDsContext(ctx, []int{1}); got[1].String() != "Renamed" || fake.idsCalls != 2 {
+		t.Errorf("not cached: %v, %d calls", got, fake.idsCalls)
+	}
+}

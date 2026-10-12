@@ -120,18 +120,50 @@ func (p *ProviderWithCache) SearchByIDsContext(ctx context.Context, ids []int) (
 	if len(missing) == 0 {
 		return found, nil
 	}
+	if err := p.fetchByIDs(ctx, missing, found); err != nil {
+		return nil, err
+	}
+	return found, nil
+}
 
+// RefreshByIDs gets the metadata of several ids from the provider, not the cache
+// (batched when the provider is a Batcher), and caches what it got. Unknown ids are left
+// out.
+func (p *ProviderWithCache) RefreshByIDs(ids []int) (map[int]Metadata, error) {
+	return p.RefreshByIDsContext(context.Background(), ids)
+}
+
+// RefreshByIDsContext is RefreshByIDs with a context.
+func (p *ProviderWithCache) RefreshByIDsContext(ctx context.Context, ids []int) (map[int]Metadata, error) {
+	var unique []int
+	for _, id := range ids {
+		if !slices.Contains(unique, id) {
+			unique = append(unique, id)
+		}
+	}
+	found := make(map[int]Metadata, len(unique))
+	if len(unique) == 0 {
+		return found, nil
+	}
+	if err := p.fetchByIDs(ctx, unique, found); err != nil {
+		return nil, err
+	}
+	return found, nil
+}
+
+// fetchByIDs gets the ids from the provider into found, caching them.
+func (p *ProviderWithCache) fetchByIDs(ctx context.Context, ids []int, found map[int]Metadata) error {
 	fetched := map[int]Metadata{}
 	if batcher, ok := p.provider.(Batcher); ok {
 		var err error
-		if fetched, err = batcher.SearchByIDs(ctx, missing); err != nil {
-			return nil, err
+		if fetched, err = batcher.SearchByIDs(ctx, ids); err != nil {
+			return err
 		}
 	} else {
-		for _, id := range missing {
+		for _, id := range ids {
 			meta, ok, err := p.provider.SearchByID(ctx, id)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if ok {
 				fetched[id] = meta
@@ -140,11 +172,11 @@ func (p *ProviderWithCache) SearchByIDsContext(ctx context.Context, ids []int) (
 	}
 	for id, meta := range fetched {
 		if err := p.store.setMeta(id, meta); err != nil {
-			return nil, p.cacheError(err)
+			return p.cacheError(err)
 		}
 		found[id] = meta
 	}
-	return found, nil
+	return nil
 }
 
 // FindClosestMany is FindClosest for several queries, with as few requests as possible:
