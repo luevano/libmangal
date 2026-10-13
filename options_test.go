@@ -2,11 +2,15 @@ package libmangal
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"testing"
 
 	"github.com/luevano/libmangal/metadata"
 	"github.com/luevano/libmangal/metadata/anilist"
+	"github.com/luevano/libmangal/metadata/kitsu"
 	"github.com/luevano/libmangal/metadata/myanimelist"
+	"github.com/luevano/libmangal/netutil"
 )
 
 func TestZeroOptionsReturnErrors(t *testing.T) {
@@ -32,5 +36,27 @@ func TestZeroOptionsReturnErrors(t *testing.T) {
 	zero.Format = FormatCBZ
 	if _, err := c.DownloadChapterContext(context.Background(), newFakeChapter(validMeta(), 1), zero); err != nil {
 		t.Errorf("DownloadChapter: %v", err)
+	}
+}
+
+func TestDefaultHTTPClients(t *testing.T) {
+	for name, client := range map[string]*http.Client{
+		"libmangal":   DefaultClientOptions().HTTPClient,
+		"anilist":     anilist.DefaultOptions().HTTPClient,
+		"myanimelist": myanimelist.DefaultOptions().HTTPClient,
+		"kitsu":       kitsu.DefaultOptions().HTTPClient,
+	} {
+		if client.Timeout != netutil.DefaultTimeout {
+			t.Errorf("%s: timeout %s, want %s", name, client.Timeout, netutil.DefaultTimeout)
+		}
+	}
+}
+
+func TestSentinelsAreShared(t *testing.T) {
+	if !errors.Is(&anilist.HTTPError{StatusCode: http.StatusNotFound}, ErrNotFound) {
+		t.Error("an AniList 404 doesn't match ErrNotFound")
+	}
+	if !errors.Is(&kitsu.RateLimitError{}, ErrRateLimited) {
+		t.Error("a Kitsu 429 doesn't match ErrRateLimited")
 	}
 }

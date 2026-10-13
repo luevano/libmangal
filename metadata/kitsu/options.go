@@ -4,11 +4,12 @@ import (
 	"net/http"
 
 	"github.com/luevano/libmangal/logger"
+	"github.com/luevano/libmangal/netutil"
 )
 
 // DefaultUserAgent is sent when Options.UserAgent is empty, Cloudflare challenges
 // some agents (curl's) on the login endpoint.
-const DefaultUserAgent = "libmangal (https://github.com/luevano/libmangal)"
+const DefaultUserAgent = netutil.LibraryUserAgent
 
 // Options is options for Kitsu client.
 type Options struct {
@@ -32,7 +33,7 @@ type Options struct {
 // DefaultOptions constructs default Kitsu Options.
 func DefaultOptions() Options {
 	return Options{
-		HTTPClient: &http.Client{},
+		HTTPClient: netutil.NewClient(),
 		UserAgent:  DefaultUserAgent,
 		Logger:     logger.NewLogger(),
 	}

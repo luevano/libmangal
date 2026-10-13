@@ -1,6 +1,7 @@
 package myanimelist
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -85,6 +86,7 @@ func (p *MyAnimeList) request(
 		headers.Set("X-MAL-CLIENT-ID", p.options.ClientID)
 	}
 	req.Header = headers
+	req.Header.Set("User-Agent", cmp.Or(p.options.UserAgent, DefaultUserAgent))
 
 	resp, err := p.options.HTTPClient.Do(req)
 	if err != nil {

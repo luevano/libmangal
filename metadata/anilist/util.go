@@ -2,6 +2,7 @@ package anilist
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -99,6 +100,7 @@ func (p *Anilist) genericRequest(ctx context.Context, method, url string, body i
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", cmp.Or(p.options.UserAgent, DefaultUserAgent))
 
 	if authIfAvailable && p.Authenticated() {
 		req.Header.Set("Authorization", "Bearer "+p.token)

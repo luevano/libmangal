@@ -8,13 +8,16 @@ import (
 
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/netutil"
 	"github.com/spf13/afero"
 )
 
+// DefaultUserAgent of DefaultClientOptions, a current Firefox (netutil.BrowserUserAgent).
+const DefaultUserAgent = netutil.BrowserUserAgent
+
 const (
-	defaultUserAgent string      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0"
-	defaultModeDir   fs.FileMode = 0o755
-	defaultModeFile  fs.FileMode = 0o644
+	defaultModeDir  fs.FileMode = 0o755
+	defaultModeFile fs.FileMode = 0o644
 
 	defaultConcurrentPages = 8
 )
@@ -179,7 +182,8 @@ func DefaultDownloadOptions() DownloadOptions {
 
 // ClientOptions is options that client would use during its runtime.
 type ClientOptions struct {
-	// HTTPClient is http client that client would use for requests.
+	// HTTPClient is http client that client would use for requests
+	// (netutil.NewClient by default, with netutil.DefaultTimeout).
 	HTTPClient *http.Client
 
 	// UserAgent to use when making HTTP requests.
@@ -248,8 +252,8 @@ func (o ClientOptions) validate() error {
 // DefaultClientOptions constructs default ClientOptions, with default Anilist options as well.
 func DefaultClientOptions() ClientOptions {
 	return ClientOptions{
-		HTTPClient:      &http.Client{},
-		UserAgent:       defaultUserAgent,
+		HTTPClient:      netutil.NewClient(),
+		UserAgent:       DefaultUserAgent,
 		ModeDir:         defaultModeDir,
 		ModeFile:        defaultModeFile,
 		FS:              afero.NewOsFs(),

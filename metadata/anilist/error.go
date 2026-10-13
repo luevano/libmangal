@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/netutil"
 )
 
 // HTTPError: The API answered with an error (other than 429, see RateLimitError).
@@ -63,11 +64,11 @@ func (e *RateLimitError) RetryAfterDuration() time.Duration {
 // AniList sometimes answers "Retry-After: 0" while still limiting: a hint that isn't in the
 // future counts as none.
 func retryAfter(header http.Header) time.Duration {
-	if secs, err := strconv.Atoi(header.Get("Retry-After")); err == nil && secs > 0 {
-		return time.Duration(secs) * time.Second
+	if wait := netutil.RetryAfter(header.Get("Retry-After")); wait > 0 {
+		return wait
 	}
 	if reset, err := strconv.ParseInt(header.Get("X-RateLimit-Reset"), 10, 64); err == nil {
-		if wait := time.Until(time.Unix(reset, 0)).Round(time.Second); wait > 0 {
+		if wait := netutil.CapRetryAfter(time.Until(time.Unix(reset, 0)).Round(time.Second)); wait > 0 {
 			return wait
 		}
 	}

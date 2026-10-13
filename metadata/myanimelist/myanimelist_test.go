@@ -156,3 +156,17 @@ func TestFailedLoginLogsOut(t *testing.T) {
 		t.Errorf("got %v authenticated=%t user %v, want logged out", err, m.Authenticated(), m.User())
 	}
 }
+
+func TestUserAgent(t *testing.T) {
+	var ua string
+	m := newTestMAL(t, func(w http.ResponseWriter, r *http.Request) {
+		ua = r.Header.Get("User-Agent")
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	})
+	if _, err := m.Search(context.Background(), "berserk"); err != nil {
+		t.Fatal(err)
+	}
+	if ua != DefaultUserAgent {
+		t.Errorf("user agent %q, want %q", ua, DefaultUserAgent)
+	}
+}

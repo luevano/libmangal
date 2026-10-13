@@ -104,6 +104,10 @@ func TestRetryAfter(t *testing.T) {
 		{"0", "", time.Minute, time.Minute},
 		{"0", past, time.Minute, time.Minute},
 		{"", "", time.Minute, time.Minute},
+		// capped
+		{"3600", "", 5 * time.Minute, 5 * time.Minute},
+		{"0", strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10), 5 * time.Minute, 5 * time.Minute},
+		{time.Now().Add(20 * time.Second).UTC().Format(http.TimeFormat), "", 19 * time.Second, 21 * time.Second},
 	} {
 		h := http.Header{}
 		if c.retryAfter != "" {
@@ -275,5 +279,19 @@ func TestFailedLoginLogsOut(t *testing.T) {
 	}
 	if err := a.Login(context.Background(), "bad"); err == nil || a.Authenticated() || a.User() != nil {
 		t.Errorf("got %v authenticated=%t user %v, want logged out", err, a.Authenticated(), a.User())
+	}
+}
+
+func TestUserAgent(t *testing.T) {
+	var ua string
+	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+		ua = r.Header.Get("User-Agent")
+		_, _ = w.Write([]byte(`{"data":{"page":{"media":[]}}}`))
+	})
+	if _, err := a.Search(context.Background(), "berserk"); err != nil {
+		t.Fatal(err)
+	}
+	if ua != DefaultUserAgent {
+		t.Errorf("user agent %q, want %q", ua, DefaultUserAgent)
 	}
 }
