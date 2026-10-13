@@ -216,3 +216,17 @@ func TestSharedMetadataProviderKeepsItsLogger(t *testing.T) {
 		t.Errorf("provider hook got %d lines, want 4: %q", len(lines), lines)
 	}
 }
+
+func TestSearchByMangaEmptyTitle(t *testing.T) {
+	berserk := newAniMeta(7, "Fake Manga")
+	ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byQuery: map[string][]metadata.Metadata{"Fake Manga": {berserk}}}
+	c := newTestClient(t)
+	// no title from the provider, only its metadata's
+	manga := newFakeChapter(validMeta(), 1).volume.manga
+	manga.info.Title = ""
+
+	meta, found, err := c.SearchByMangaContext(context.Background(), withCache(t, ani), manga)
+	if err != nil || !found || meta != berserk {
+		t.Fatalf("got %v found=%t err=%v, want %v", meta, found, err, berserk)
+	}
+}

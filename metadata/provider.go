@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/luevano/libmangal/logger"
@@ -319,6 +320,9 @@ func (p *ProviderWithCache) FindClosestContext(ctx context.Context, query Query)
 // the same manga metadata with that id is obtained.
 func (p *ProviderWithCache) BindTitleWithID(title string, id int) error {
 	p.Logger().Log("binding manga title %q to manga metadata id %d on %q", title, id, p.Info().Name)
+	if strings.TrimSpace(title) == "" {
+		return fmt.Errorf("%s: bind title: empty title", p.Info().ID)
+	}
 	if err := p.store.setTitleID(title, id); err != nil {
 		return p.cacheError(err)
 	}

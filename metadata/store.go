@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/philippgille/gokv"
@@ -82,12 +83,20 @@ func (s store) setQueryIDs(query string, ids []int) error {
 	return s.set(CacheBucketNameQueryToIDs, query, ids)
 }
 
+// getTitleID is never found for a blank title (gokv refuses empty keys).
 func (s store) getTitleID(title string) (id int, found bool, err error) {
+	if strings.TrimSpace(title) == "" {
+		return 0, false, nil
+	}
 	found, err = s.get(CacheBucketNameTitleToID, title, &id)
 	return
 }
 
+// setTitleID doesn't bind a blank title.
 func (s store) setTitleID(title string, id int) error {
+	if strings.TrimSpace(title) == "" {
+		return nil
+	}
 	return s.set(CacheBucketNameTitleToID, title, id)
 }
 
