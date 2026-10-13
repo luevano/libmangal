@@ -38,6 +38,9 @@ func (t Token) Expiry() time.Time {
 
 // PasswordToken gets a token with the user's email (or name) and password.
 // A wrong password matches metadata.ErrUnauthorized.
+//
+// Like the metadata.Provider methods (Login, Search, ...) it takes a context and has no
+// plain variant, same for RefreshToken and LoginPassword.
 func (p *Kitsu) PasswordToken(ctx context.Context, username, password string) (Token, error) {
 	form := url.Values{}
 	form.Set("grant_type", "password")
@@ -51,6 +54,7 @@ func (p *Kitsu) PasswordToken(ctx context.Context, username, password string) (T
 }
 
 // RefreshToken gets a new token with the refresh token of a previous one.
+// It takes a context like the metadata.Provider methods, no plain variant.
 func (p *Kitsu) RefreshToken(ctx context.Context, refreshToken string) (Token, error) {
 	form := url.Values{}
 	form.Set("grant_type", "refresh_token")
@@ -64,6 +68,7 @@ func (p *Kitsu) RefreshToken(ctx context.Context, refreshToken string) (Token, e
 
 // LoginPassword gets a token with the user's email (or name) and password and
 // logs in with it. The token is returned to be saved (Login, RefreshToken).
+// It takes a context like the metadata.Provider methods, no plain variant.
 func (p *Kitsu) LoginPassword(ctx context.Context, username, password string) (Token, error) {
 	token, err := p.PasswordToken(ctx, username, password)
 	if err != nil {
