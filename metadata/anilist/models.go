@@ -14,10 +14,13 @@ type mangasData struct {
 
 type medias []*Manga
 
+// GetAsMetas skips null medias (AniList can send them, e.g. for a deleted media).
 func (m medias) GetAsMetas() []metadata.Metadata {
-	mangas := make([]metadata.Metadata, len(m))
-	for i, n := range m {
-		mangas[i] = n
+	mangas := make([]metadata.Metadata, 0, len(m))
+	for _, n := range m {
+		if n != nil {
+			mangas = append(mangas, n)
+		}
 	}
 	return mangas
 }

@@ -245,3 +245,18 @@ func TestSearchMany(t *testing.T) {
 		}
 	}
 }
+
+func TestNullMedia(t *testing.T) {
+	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"page":{"media":[null,{"id":7,"title":{"english":"Berserk"}}]}}}`))
+	})
+
+	metas, err := a.Search(context.Background(), "berserk")
+	if err != nil || len(metas) != 1 || metas[0].ID().Value() != 7 {
+		t.Errorf("search: got %v, %v", metas, err)
+	}
+	found, err := a.SearchByIDs(context.Background(), []int{7, 8})
+	if err != nil || len(found) != 1 || found[7] == nil {
+		t.Errorf("by ids: got %v, %v", found, err)
+	}
+}

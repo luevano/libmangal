@@ -82,7 +82,9 @@ query ($ids: [Int]) {
 			return nil, fmt.Errorf("get mangas %v: %w", chunk, err)
 		}
 		for _, manga := range data.Page.Media {
-			found[manga.IDProvider] = manga
+			if manga != nil {
+				found[manga.IDProvider] = manga
+			}
 		}
 	}
 	return found, nil
