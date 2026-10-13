@@ -64,6 +64,7 @@ func TestMangaImageReferer(t *testing.T) {
 	var referer string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		referer = r.Header.Get("Referer")
+		w.Header().Set("Content-Type", "image/jpeg")
 		_, _ = w.Write([]byte("image"))
 	}))
 	defer server.Close()
@@ -116,5 +117,38 @@ func TestSavePDF(t *testing.T) {
 	}
 	if n != 3 {
 		t.Errorf("%d pages, want 3", n)
+	}
+}
+
+func TestMangaImageChecks(t *testing.T) {
+	var img bytes.Buffer
+	if err := png.Encode(&img, image.NewGray(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name, contentType string
+		body              []byte
+		ok                bool
+	}{
+		{"png", "image/png", img.Bytes(), true},
+		{"octet-stream png", "application/octet-stream", img.Bytes(), true},
+		{"html", "text/html", []byte("<html><body>blocked</body></html>"), false},
+		{"html as octet-stream", "application/octet-stream", []byte("<html><body>blocked</body></html>"), false},
+		{"too big", "image/png", make([]byte, maxMangaImageSize+1), false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", tt.contentType)
+				_, _ = w.Write(tt.body)
+			}))
+			defer server.Close()
+			meta := validMeta()
+			meta.CoverImage = server.URL + "/cover"
+			var out bytes.Buffer
+			err := newTestClient(t).downloadMangaImage(context.Background(), newFakeChapter(meta, 1).volume.manga, mangaImageCover, &out)
+			if tt.ok != (err == nil) || (err != nil && out.Len() != 0) {
+				t.Errorf("err %v, wrote %d bytes", err, out.Len())
+			}
+		})
 	}
 }

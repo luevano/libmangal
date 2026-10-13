@@ -21,6 +21,9 @@ import (
 
 type mangaImage string
 
+// maxMangaImageSize caps cover and banner downloads.
+const maxMangaImageSize = 20 << 20
+
 // pageExtension is what a page extension must look like: it ends up in file paths and
 // archive entry names, so anything else could escape the chapter.
 var pageExtension = regexp.MustCompile(`^\.[A-Za-z0-9]{1,8}$`)
@@ -301,7 +304,22 @@ func (c *Client) downloadMangaImage(
 		return fmt.Errorf("download %s: GET %s: %d %s", mangaImage, URL, response.StatusCode, strings.ToLower(http.StatusText(response.StatusCode)))
 	}
 
-	if _, err := io.Copy(out, response.Body); err != nil {
+	data, err := io.ReadAll(io.LimitReader(response.Body, maxMangaImageSize+1))
+	if err != nil {
+		return fmt.Errorf("download %s: %w", mangaImage, err)
+	}
+	if len(data) > maxMangaImageSize {
+		return fmt.Errorf("download %s: GET %s: bigger than %d MB", mangaImage, URL, maxMangaImageSize>>20)
+	}
+	// some image hosts answer application/octet-stream, so the content decides then
+	contentType := response.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "image/") {
+		contentType = http.DetectContentType(data)
+	}
+	if !strings.HasPrefix(contentType, "image/") {
+		return fmt.Errorf("download %s: GET %s: not an image (%s)", mangaImage, URL, contentType)
+	}
+	if _, err := out.Write(data); err != nil {
 		return fmt.Errorf("download %s: %w", mangaImage, err)
 	}
 	return nil
