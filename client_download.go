@@ -42,7 +42,10 @@ func (c *Client) DownloadChapterContext(
 		options.progress(DownloadProgress{Chapter: chapter, Stage: DownloadStageMetadata})
 		m, err := c.SearchMetadataContext(ctx, manga)
 		if err != nil {
-			return nil, fmt.Errorf("search metadata: %w", err)
+			if options.Strict || ctx.Err() != nil {
+				return nil, fmt.Errorf("search metadata: %w", err)
+			}
+			c.logger.Log("search metadata for manga %q: %s, downloading without it", manga, err)
 		}
 		manga.SetMetadata(m)
 	}

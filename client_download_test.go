@@ -293,3 +293,28 @@ func TestDownloadUnsafeNames(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestDownloadFailedMetadataSearch(t *testing.T) {
+	meta := &fakeMetaProvider{source: metadata.IDSourceAnilist, searchErr: errors.New("anilist down")}
+	for _, strict := range []bool{false, true} {
+		c := newTestClient(t, meta)
+		options := DefaultDownloadOptions()
+		options.Directory = t.TempDir()
+		options.Strict = strict
+		chapter := newFakeChapter(nil, 1)
+
+		down, err := c.DownloadChapterContext(context.Background(), chapter, options)
+		if strict {
+			if err == nil {
+				t.Error("strict: no error")
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if down.ChapterStatus != metadata.DownloadStatusNew || down.SeriesJSONStatus != metadata.DownloadStatusMissingMetadata {
+			t.Errorf("chapter %q, series.json %q", down.ChapterStatus, down.SeriesJSONStatus)
+		}
+	}
+}

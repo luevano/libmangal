@@ -65,8 +65,9 @@ type DownloadOptions struct {
 	// will be created under it.
 	CreateVolumeDir bool
 
-	// Strict means that if the metadata is invalid or if an error occurs during
-	// metadata files creation, the chapter will not be written to disk.
+	// Strict means that if the metadata search fails, the metadata is invalid or if an
+	// error occurs during metadata files creation, the chapter will not be written to disk.
+	// Without it, a failed search is logged and the chapter is downloaded without metadata.
 	//
 	// Some metadata is potentially written to disk.
 	Strict bool
