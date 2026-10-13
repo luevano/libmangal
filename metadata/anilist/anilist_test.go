@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -305,5 +306,29 @@ func TestHugeErrorBody(t *testing.T) {
 	var httpErr *HTTPError
 	if !errors.As(err, &httpErr) || len(httpErr.Message) > maxErrorBody {
 		t.Errorf("got a %d bytes error", len(err.Error()))
+	}
+}
+
+func TestMangaStaffRoles(t *testing.T) {
+	var m Manga
+	if err := json.Unmarshal([]byte(`{"staff": {"edges": [
+		{"role": "Story & Art", "node": {"name": {"full": "Kentarou Miura"}}},
+		{"role": "Story", "node": {"name": {"full": "Kouji Mori"}}},
+		{"role": "Translator (English)", "node": {"name": {"full": "Jason DeAngelis"}}},
+		{"role": "Lettering (English)", "node": {"name": {"full": "Dan Nakrosis"}}}
+	]}}`), &m); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		got, want []string
+	}{
+		{m.Authors(), []string{"Kentarou Miura", "Kouji Mori"}},
+		{m.Artists(), []string{"Kentarou Miura"}},
+		{m.Translators(), []string{"Jason DeAngelis"}},
+		{m.Letterers(), []string{"Dan Nakrosis"}},
+	} {
+		if !slices.Equal(tt.got, tt.want) {
+			t.Errorf("got %q, want %q", tt.got, tt.want)
+		}
 	}
 }

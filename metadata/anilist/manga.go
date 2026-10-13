@@ -176,57 +176,35 @@ func (m *Manga) Characters() []string {
 	return characters
 }
 
+func (m *Manga) staffWith(role string) []string {
+	var names []string
+	for _, edge := range m.Staff.Edges {
+		if strings.Contains(strings.ToLower(edge.Role), role) {
+			names = append(names, edge.Node.Name.Full)
+		}
+	}
+	return names
+}
+
 // Authors (or Writers) is the list of authors, in order of relevance.
 // Must contain at least one author.
 func (m *Manga) Authors() []string {
-	var authors []string
-	for _, edge := range m.Staff.Edges {
-		role := strings.ToLower(edge.Role)
-		name := edge.Node.Name.Full
-		if strings.Contains(role, "story") {
-			authors = append(authors, name)
-		}
-	}
-	return authors
+	return m.staffWith("story")
 }
 
 // Artists is the list of artists, in order of relevance.
 func (m *Manga) Artists() []string {
-	var artists []string
-	for _, edge := range m.Staff.Edges {
-		role := strings.ToLower(edge.Role)
-		name := edge.Node.Name.Full
-		if strings.Contains(role, "art") {
-			artists = append(artists, name)
-		}
-	}
-	return artists
+	return m.staffWith("art")
 }
 
 // Translators is the list of translators, in order of relevance.
 func (m *Manga) Translators() []string {
-	var translators []string
-	for _, edge := range m.Staff.Edges {
-		role := strings.ToLower(edge.Role)
-		name := edge.Node.Name.Full
-		if strings.Contains(role, "translator") {
-			translators = append(translators, name)
-		}
-	}
-	return translators
+	return m.staffWith("translator")
 }
 
 // Letterers is the list of letterers, in order of relevance.
 func (m *Manga) Letterers() []string {
-	var letterers []string
-	for _, edge := range m.Staff.Edges {
-		role := strings.ToLower(edge.Role)
-		name := edge.Node.Name.Full
-		if strings.Contains(role, "lettering") {
-			letterers = append(letterers, name)
-		}
-	}
-	return letterers
+	return m.staffWith("lettering")
 }
 
 // StartDate is the date the manga started publishing.
