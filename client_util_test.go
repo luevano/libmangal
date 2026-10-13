@@ -152,3 +152,38 @@ func TestMangaImageChecks(t *testing.T) {
 		})
 	}
 }
+
+func TestMangaImageURL(t *testing.T) {
+	meta := validMeta()
+	meta.CoverImage, meta.BannerImage = "meta-cover", "meta-banner"
+	manga := newFakeChapter(meta, 1).volume.manga
+	for _, tt := range []struct {
+		image        mangaImage
+		provider     string
+		want         string
+		fromProvider bool
+	}{
+		{mangaImageCover, "", "meta-cover", false},
+		{mangaImageCover, "provider", "provider", true},
+		{mangaImageBanner, "", "meta-banner", false},
+		{mangaImageBanner, "provider", "provider", true},
+	} {
+		manga.info.Cover, manga.info.Banner = "", ""
+		if tt.image == mangaImageCover {
+			manga.info.Cover = tt.provider
+		} else {
+			manga.info.Banner = tt.provider
+		}
+		got, fromProvider, err := mangaImageURL(manga, tt.image)
+		if err != nil || got != tt.want || fromProvider != tt.fromProvider {
+			t.Errorf("%s: got %q, %t, %v; want %q, %t", tt.image, got, fromProvider, err, tt.want, tt.fromProvider)
+		}
+	}
+	manga.meta, manga.info.Banner = nil, ""
+	if got, _, err := mangaImageURL(manga, mangaImageBanner); got != "" || err != nil {
+		t.Errorf("no metadata: got %q, %v", got, err)
+	}
+	if _, _, err := mangaImageURL(manga, "icon"); err == nil {
+		t.Error("unknown image: no error")
+	}
+}

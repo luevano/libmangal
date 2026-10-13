@@ -124,25 +124,8 @@ func (c *Client) saveCBZ(
 	c.logger.Log("saving %d pages as CBZ", len(pages))
 
 	zipWriter := zip.NewWriter(out)
-
-	for i, page := range pages {
-		name, err := pageName(i, page)
-		if err != nil {
-			return "", err
-		}
-		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-			Name:     name,
-			Method:   zip.Store,
-			Modified: time.Now(),
-		})
-		if err != nil {
-			return "", err
-		}
-
-		_, err = writer.Write(page.Image())
-		if err != nil {
-			return "", err
-		}
+	if err := writeZIPPages(zipWriter, pages); err != nil {
+		return "", err
 	}
 
 	ciXmlStatus := metadata.DownloadStatusMissingMetadata
@@ -152,18 +135,7 @@ func (c *Client) saveCBZ(
 		if err != nil {
 			return "", err
 		}
-
-		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-			Name:     metadata.FilenameComicInfoXML,
-			Method:   zip.Store,
-			Modified: time.Now(),
-		})
-		if err != nil {
-			return "", err
-		}
-
-		_, err = writer.Write(marshalled)
-		if err != nil {
+		if err := writeZIPFile(zipWriter, metadata.FilenameComicInfoXML, marshalled); err != nil {
 			return "", err
 		}
 	}
@@ -228,28 +200,36 @@ func (c *Client) saveZIP(
 	c.logger.Log("saving %d pages as ZIP", len(pages))
 
 	zipWriter := zip.NewWriter(out)
+	if err := writeZIPPages(zipWriter, pages); err != nil {
+		return err
+	}
+	return zipWriter.Close()
+}
 
+func writeZIPPages(zipWriter *zip.Writer, pages []mangadata.PageWithImage) error {
 	for i, page := range pages {
 		name, err := pageName(i, page)
 		if err != nil {
 			return err
 		}
-		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-			Name:     name,
-			Method:   zip.Store,
-			Modified: time.Now(),
-		})
-		if err != nil {
-			return err
-		}
-
-		_, err = writer.Write(page.Image())
-		if err != nil {
+		if err := writeZIPFile(zipWriter, name, page.Image()); err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
-	return zipWriter.Close()
+func writeZIPFile(zipWriter *zip.Writer, name string, data []byte) error {
+	writer, err := zipWriter.CreateHeader(&zip.FileHeader{
+		Name:     name,
+		Method:   zip.Store,
+		Modified: time.Now(),
+	})
+	if err != nil {
+		return err
+	}
+	_, err = writer.Write(data)
+	return err
 }
 
 // downloadMangaImage will download image related to manga.
@@ -265,15 +245,9 @@ func (c *Client) downloadMangaImage(
 	out io.Writer,
 ) error {
 	c.logger.Log("downloading %s image", mangaImage)
-	var URL string
-	var fromProvider bool
-	switch mangaImage {
-	case mangaImageCover:
-		URL, fromProvider = getCover(manga)
-	case mangaImageBanner:
-		URL, fromProvider = getBanner(manga)
-	default:
-		return fmt.Errorf("unknown manga image type %q", mangaImage)
+	URL, fromProvider, err := mangaImageURL(manga, mangaImage)
+	if err != nil {
+		return err
 	}
 	if URL == "" {
 		return fmt.Errorf("no %s image url", mangaImage)
@@ -334,28 +308,26 @@ func origin(rawURL string) string {
 	return u.Scheme + "://" + u.Host + "/"
 }
 
-// getCover returns the cover image URL, and whether it's the provider's
+// mangaImageURL returns the image's URL, and whether it's the provider's
 // instead of the metadata's.
-func getCover(manga mangadata.Manga) (string, bool) {
-	if cover := manga.Info().Cover; cover != "" {
-		return cover, true
+func mangaImageURL(manga mangadata.Manga, image mangaImage) (string, bool, error) {
+	var fromProvider string
+	var fromMetadata func(metadata.Metadata) string
+	switch image {
+	case mangaImageCover:
+		fromProvider, fromMetadata = manga.Info().Cover, metadata.Metadata.Cover
+	case mangaImageBanner:
+		fromProvider, fromMetadata = manga.Info().Banner, metadata.Metadata.Banner
+	default:
+		return "", false, fmt.Errorf("unknown manga image type %q", image)
 	}
-	if manga.Metadata() != nil {
-		return manga.Metadata().Cover(), false
+	if fromProvider != "" {
+		return fromProvider, true, nil
 	}
-	return "", false
-}
-
-// getBanner returns the banner image URL, and whether it's the provider's
-// instead of the metadata's.
-func getBanner(manga mangadata.Manga) (string, bool) {
-	if banner := manga.Info().Banner; banner != "" {
-		return banner, true
+	if meta := manga.Metadata(); meta != nil {
+		return fromMetadata(meta), false, nil
 	}
-	if manga.Metadata() != nil {
-		return manga.Metadata().Banner(), false
-	}
-	return "", false
+	return "", false, nil
 }
 
 // getSeriesJSON gets SeriesJSON from the chapter.
