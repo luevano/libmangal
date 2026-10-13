@@ -5,13 +5,11 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
-	"github.com/luevano/libmangal/progress"
+	"github.com/luevano/libmangal/metadata/internal/ratelimit"
 )
 
 type apiRequestBody struct {
@@ -27,30 +25,16 @@ type apiResponse[Data any] struct {
 	Data Data `json:"data"`
 }
 
-// rateLimitRetries is how many times a rate limited request is retried (after waiting).
-const rateLimitRetries = 1
-
 func sendRequest[Data any](
 	ctx context.Context,
 	anilist *Anilist,
 	requestBody apiRequestBody,
 ) (data Data, err error) {
-	for retry := 0; ; retry++ {
+	err = ratelimit.Retry(ctx, anilist.logger, info.ID, "AniList", func() error {
 		data, err = sendRequestOnce[Data](ctx, anilist, requestBody)
-		var rateLimit *RateLimitError
-		if retry == rateLimitRetries || !errors.As(err, &rateLimit) {
-			return data, err
-		}
-
-		msg := fmt.Sprintf("AniList rate limited, retrying in %s", rateLimit.RetryAfter)
-		anilist.logger.Log("%s", msg)
-		progress.Report(ctx, progress.Status{Source: info.ID, Message: msg})
-		select {
-		case <-time.After(rateLimit.RetryAfter):
-		case <-ctx.Done():
-			return data, ctx.Err()
-		}
-	}
+		return err
+	})
+	return data, err
 }
 
 func sendRequestOnce[Data any](

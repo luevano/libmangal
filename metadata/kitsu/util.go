@@ -4,15 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
-	"github.com/luevano/libmangal/progress"
+	"github.com/luevano/libmangal/metadata/internal/ratelimit"
 )
 
 const contentType = "application/vnd.api+json"
@@ -97,9 +95,6 @@ func (idx includedIndex) related(r resource, name string) []resource {
 	return out
 }
 
-// rateLimitRetries is how many times a rate limited request is retried (after waiting).
-const rateLimitRetries = 1
-
 // request sends a request to the API (path relative to apiURL) and decodes
 // the response into res, if non-nil. body, if non-nil, is sent as JSON.
 func (p *Kitsu) request(ctx context.Context, method, path string, params url.Values, body, res any) error {
@@ -135,22 +130,9 @@ func (p *Kitsu) request(ctx context.Context, method, path string, params url.Val
 
 // send sends the request built by newReq, retrying once when rate limited.
 func (p *Kitsu) send(ctx context.Context, newReq func() (*http.Request, error), res any) error {
-	for retry := 0; ; retry++ {
-		err := p.sendOnce(newReq, res)
-		var rateLimit *RateLimitError
-		if retry == rateLimitRetries || !errors.As(err, &rateLimit) {
-			return err
-		}
-
-		msg := fmt.Sprintf("Kitsu rate limited, retrying in %s", rateLimit.RetryAfter)
-		p.logger.Log("%s", msg)
-		progress.Report(ctx, progress.Status{Source: info.ID, Message: msg})
-		select {
-		case <-time.After(rateLimit.RetryAfter):
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return ratelimit.Retry(ctx, p.logger, info.ID, "Kitsu", func() error {
+		return p.sendOnce(newReq, res)
+	})
 }
 
 func (p *Kitsu) sendOnce(newReq func() (*http.Request, error), res any) error {
