@@ -2,6 +2,7 @@ package libmangal
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/luevano/libmangal/netutil"
 )
@@ -22,3 +23,18 @@ var (
 	// metadata.ErrRateLimited is the same value (see netutil, RetryAfter).
 	ErrRateLimited = netutil.ErrRateLimited
 )
+
+// OpenError: Client.ReadChapter couldn't open the file with the default app, so no
+// reading progress was set.
+type OpenError struct {
+	Path string
+	Err  error
+}
+
+func (e *OpenError) Error() string {
+	return fmt.Sprintf("open %s: %v", e.Path, e.Err)
+}
+
+func (e *OpenError) Unwrap() error {
+	return e.Err
+}

@@ -248,7 +248,7 @@ func hasTitle(query metadata.Query) bool {
 // if enabled in the ReadOptions.
 //
 // Note, that underlying filesystem must be mapped with OsFs
-// in order for os to open it.
+// in order for os to open it. Failing to open it is an *OpenError.
 func (c *Client) ReadChapter(path string, chapter mangadata.Chapter, options ReadOptions) error {
 	return c.ReadChapterContext(context.Background(), path, chapter, options)
 }
@@ -263,7 +263,7 @@ func (c *Client) ReadChapterContext(
 	c.logger.Log("opening chapter %q from %s with the default app", chapter, path)
 
 	if err := openFile(path); err != nil {
-		return fmt.Errorf("open %s: %w", path, err)
+		return &OpenError{Path: path, Err: err}
 	}
 
 	sync := map[metadata.IDSource]bool{

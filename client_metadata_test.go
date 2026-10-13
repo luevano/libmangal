@@ -230,3 +230,19 @@ func TestSearchByMangaEmptyTitle(t *testing.T) {
 		t.Fatalf("got %v found=%t err=%v, want %v", meta, found, err, berserk)
 	}
 }
+
+func TestReadChapterOpenError(t *testing.T) {
+	errNoApp := errors.New("no app")
+	openFile = func(string) error { return errNoApp }
+	t.Cleanup(func() { openFile = open.Run })
+
+	c := newTestClient(t)
+	err := c.ReadChapterContext(context.Background(), "/x/ch1.cbz", newFakeChapter(nil, 1), ReadOptions{})
+	var openErr *OpenError
+	if !errors.As(err, &openErr) || openErr.Path != "/x/ch1.cbz" || !errors.Is(err, errNoApp) {
+		t.Fatalf("got %v, want an *OpenError", err)
+	}
+	if want := "open /x/ch1.cbz: no app"; err.Error() != want {
+		t.Errorf("got %q, want %q", err, want)
+	}
+}
