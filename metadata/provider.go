@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -248,47 +247,11 @@ func (p *ProviderWithCache) Search(query string) ([]Metadata, error) {
 // SearchContext is Search with a context.
 func (p *ProviderWithCache) SearchContext(ctx context.Context, query string) ([]Metadata, error) {
 	p.Logger().Log("searching manga metadata with query %q on %q", query, p.Info().Name)
-	ids, found, err := p.store.getQueryIDs(query)
-	if err != nil {
-		return nil, p.cacheError(err)
-	}
-	if found {
-		var metas []Metadata
-		for _, id := range ids {
-			meta, ok, err := p.SearchByIDContext(ctx, id)
-			if err != nil {
-				return nil, err
-			}
-			if ok {
-				metas = append(metas, meta)
-			}
-		}
-		return metas, nil
-	}
-
-	metas, err := p.provider.Search(ctx, query)
+	results, err := p.SearchManyContext(ctx, []string{query})
 	if err != nil {
 		return nil, err
 	}
-
-	ids = make([]int, len(metas))
-	for i, meta := range metas {
-		id, err := strconv.Atoi(meta.ID().Raw)
-		if err != nil {
-			return nil, fmt.Errorf("%s: search %q: result %q: id %q isn't an integer", p.Info().ID, query, meta, meta.ID().Raw)
-		}
-		if err := p.store.setMeta(id, meta); err != nil {
-			return nil, p.cacheError(err)
-		}
-
-		ids[i] = id
-	}
-
-	if err := p.store.setQueryIDs(query, ids); err != nil {
-		return nil, p.cacheError(err)
-	}
-
-	return metas, nil
+	return results[0], nil
 }
 
 // maxMatchSearches is how many of the query's titles are searched at most,

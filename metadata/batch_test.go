@@ -5,6 +5,8 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/philippgille/gokv"
 )
 
 // fakeBatcher is a fakeProvider that also batches, counting the batched calls.
@@ -172,5 +174,38 @@ func TestIDsFrom(t *testing.T) {
 	}
 	if _, err := p.IDsFromContext(ctx, IDCodeMyAnimeList, []int{2}); !errors.Is(err, errors.ErrUnsupported) {
 		t.Errorf("mal: %v, want ErrUnsupported", err)
+	}
+}
+
+func TestSearchFetchesExpiredIDsInOneBatch(t *testing.T) {
+	one, two := &fakeMeta{id: 1, title: "One"}, &fakeMeta{id: 2, title: "Two"}
+	fake := &fakeBatcher{fakeProvider: &fakeProvider{
+		byID:    map[int]Metadata{1: one, 2: two},
+		byQuery: map[string][]Metadata{"q": {one, two}},
+	}}
+	// query results are kept, metadata expires right away
+	p, err := NewProviderWithCache(ProviderWithCacheOptions{
+		Provider: fake,
+		CacheStore: func(_, bucketName string) (gokv.Store, error) {
+			if bucketName == CacheBucketNameIDToManga {
+				return expiredStore{newMemStore()}, nil
+			}
+			return newMemStore(), nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.provider = fake
+
+	for range 2 {
+		metas, err := p.SearchContext(context.Background(), "q")
+		if err != nil || !reflect.DeepEqual(metas, []Metadata{one, two}) {
+			t.Fatalf("got %v, %v", metas, err)
+		}
+	}
+	if fake.manyCalls != 1 || fake.idsCalls != 1 || len(fake.idCalls) != 0 || len(fake.queries) != 0 {
+		t.Errorf("%d batched searches, %d batched id lookups, %d single id lookups, %d single searches; want 1, 1, 0, 0",
+			fake.manyCalls, fake.idsCalls, len(fake.idCalls), len(fake.queries))
 	}
 }
