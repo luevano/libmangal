@@ -271,7 +271,7 @@ func (c *Client) ReadChapterContext(
 		metadata.IDSourceMyAnimeList: options.SaveMyAnimeList,
 		metadata.IDSourceKitsu:       options.SaveKitsu,
 	}
-	progress := int(math.Trunc(float64(chapter.Info().Number)))
+	read := int(math.Trunc(float64(chapter.Info().Number)))
 	manga := chapter.Volume().Manga()
 
 	var errs []error
@@ -287,7 +287,7 @@ func (c *Client) ReadChapterContext(
 			err = fmt.Errorf("no metadata found for manga %q", manga)
 		}
 		if err == nil {
-			err = p.SetMangaProgressContext(ctx, meta.ID().Value(), progress)
+			err = p.SetMangaProgressContext(ctx, meta.ID().Value(), read)
 		}
 		if err != nil {
 			c.logger.Log("setting manga progress on %q: %s", p, err)
