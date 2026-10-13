@@ -1,6 +1,8 @@
 package libmangal
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"io"
 	"io/fs"
@@ -13,16 +15,26 @@ import (
 // partSuffix marks files and dirs still being written.
 const partSuffix = ".part"
 
+// partPath is a unique temporary path next to path, ending in partSuffix, so two
+// downloads into the same directory don't write to the same temporary file.
+func partPath(path string) string {
+	b := make([]byte, 4)
+	_, _ = rand.Read(b)
+	return path + "." + hex.EncodeToString(b) + partSuffix
+}
+
 // mergeDirectories merges two directories recursively from different filesystems.
-// If a file exists in both directories it will be overwritten.
+// If a file exists in both directories it will be overwritten, as are the existing
+// directories for which replace (may be nil) is true: those aren't merged.
 //
-// Files are written next to their destination and renamed into place, and new
-// directories are filled before being renamed, so an interrupted merge never leaves
-// a partial file (or chapter directory) under its final name.
+// Files are written next to their destination and renamed into place, and new (or
+// replaced) directories are filled before being renamed, so an interrupted merge never
+// leaves a partial file (or chapter directory) under its final name.
 func mergeDirectories(
 	modeDir, modeFile fs.FileMode,
 	dstFS afero.Fs, dstDir string,
 	srcFS afero.Fs, srcDir string,
+	replace func(dstPath string) bool,
 ) error {
 	if err := dstFS.MkdirAll(dstDir, modeDir); err != nil {
 		return err
@@ -48,19 +60,34 @@ func mergeDirectories(
 		if err != nil {
 			return err
 		}
-		if exists {
-			if err := mergeDirectories(modeDir, modeFile, dstFS, dstPath, srcFS, srcPath); err != nil {
+		replaced := exists && replace != nil && replace(dstPath)
+		if exists && !replaced {
+			if err := mergeDirectories(modeDir, modeFile, dstFS, dstPath, srcFS, srcPath, replace); err != nil {
 				return err
 			}
 			continue
 		}
 
-		tmpPath := dstPath + partSuffix
-		if err := dstFS.RemoveAll(tmpPath); err != nil {
+		tmpPath := partPath(dstPath)
+		if err := dstFS.Mkdir(tmpPath, modeDir); err != nil {
 			return err
 		}
-		if err := mergeDirectories(modeDir, modeFile, dstFS, tmpPath, srcFS, srcPath); err != nil {
+		if err := mergeDirectories(modeDir, modeFile, dstFS, tmpPath, srcFS, srcPath, replace); err != nil {
 			return errors.Join(err, dstFS.RemoveAll(tmpPath))
+		}
+		if replaced {
+			// the old directory goes only once the new one is complete
+			oldPath := partPath(dstPath)
+			if err := dstFS.Rename(dstPath, oldPath); err != nil {
+				return errors.Join(err, dstFS.RemoveAll(tmpPath))
+			}
+			if err := dstFS.Rename(tmpPath, dstPath); err != nil {
+				return errors.Join(err, dstFS.Rename(oldPath, dstPath), dstFS.RemoveAll(tmpPath))
+			}
+			if err := dstFS.RemoveAll(oldPath); err != nil {
+				return err
+			}
+			continue
 		}
 		if err := dstFS.Rename(tmpPath, dstPath); err != nil {
 			return errors.Join(err, dstFS.RemoveAll(tmpPath))
@@ -70,7 +97,7 @@ func mergeDirectories(
 	return nil
 }
 
-// copyFile copies src to a temporary file next to dst, then renames it to dst.
+// copyFile copies src to a temporary file next to dst, syncs it, then renames it to dst.
 func copyFile(
 	modeFile fs.FileMode,
 	dstFS afero.Fs, dstPath string,
@@ -82,8 +109,8 @@ func copyFile(
 	}
 	defer src.Close()
 
-	tmpPath := dstPath + partSuffix
-	tmp, err := dstFS.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, modeFile)
+	tmpPath := partPath(dstPath)
+	tmp, err := dstFS.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, modeFile)
 	if err != nil {
 		return err
 	}
@@ -94,6 +121,10 @@ func copyFile(
 	}()
 
 	if _, err := io.Copy(tmp, src); err != nil {
+		return errors.Join(err, tmp.Close())
+	}
+	// without it a crash right after the rename can leave an empty file under the final name
+	if err := tmp.Sync(); err != nil {
 		return errors.Join(err, tmp.Close())
 	}
 	if err := tmp.Close(); err != nil {

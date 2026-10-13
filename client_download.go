@@ -75,10 +75,17 @@ func (c *Client) DownloadChapterContext(
 		return nil, err
 	}
 
+	// a re-downloaded images-format chapter replaces the old pages instead of merging with them
+	var replace func(string) bool
+	if options.Format == FormatImages && downChap.ChapterStatus == metadata.DownloadStatusOverwritten {
+		chapterPath := filepath.Join(downChap.Directory, downChap.Filename)
+		replace = func(path string) bool { return path == chapterPath }
+	}
 	if err := mergeDirectories(
 		c.options.ModeDir, c.options.ModeFile,
 		c.FS(), options.Directory,
 		tmpClient.FS(), options.Directory,
+		replace,
 	); err != nil {
 		return nil, fmt.Errorf("move to %s: %w", options.Directory, err)
 	}

@@ -318,3 +318,39 @@ func TestDownloadFailedMetadataSearch(t *testing.T) {
 		}
 	}
 }
+
+func TestDownloadImagesOverwriteDropsOldPages(t *testing.T) {
+	c, options := newDownloadTest(t)
+	options.Format = FormatImages
+	options.SkipIfExists = false
+	chapter := newFakeChapter(validMeta(), 3)
+	down, err := c.DownloadChapterContext(context.Background(), chapter, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	chapter.pages, chapter.ext = 2, ".png"
+	if down, err = c.DownloadChapterContext(context.Background(), chapter, options); err != nil {
+		t.Fatal(err)
+	}
+	if down.ChapterStatus != metadata.DownloadStatusOverwritten {
+		t.Errorf("chapter status %q", down.ChapterStatus)
+	}
+	entries, err := os.ReadDir(filepath.Join(down.Directory, down.Filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, e := range entries {
+		got = append(got, e.Name())
+	}
+	if want := []string{"0001.png", "0002.png"}; !slices.Equal(got, want) {
+		t.Errorf("pages %q, want %q", got, want)
+	}
+	others, _ := os.ReadDir(down.Directory)
+	for _, e := range others {
+		if strings.HasSuffix(e.Name(), partSuffix) {
+			t.Errorf("left %s behind", e.Name())
+		}
+	}
+}
