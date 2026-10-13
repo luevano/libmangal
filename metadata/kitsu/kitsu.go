@@ -9,6 +9,7 @@ import (
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/metadata/internal/session"
 )
 
 // Reference docs:
@@ -34,9 +35,7 @@ var _ metadata.Provider = (*Kitsu)(nil)
 
 // Kitsu is a metadata.Provider implementation for Kitsu.
 type Kitsu struct {
-	// authenticated user info
-	user  *User
-	token string
+	session session.Session[*User]
 
 	options Options
 	logger  *logger.Logger
@@ -140,8 +139,9 @@ func (p *Kitsu) Search(ctx context.Context, query string) ([]metadata.Metadata, 
 //
 // nil User means non-authenticated.
 func (p *Kitsu) User() metadata.User {
-	if p.user == nil {
+	_, user := p.session.Get()
+	if user == nil {
 		return nil
 	}
-	return p.user
+	return user
 }

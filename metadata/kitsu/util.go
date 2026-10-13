@@ -121,8 +121,8 @@ func (p *Kitsu) request(ctx context.Context, method, path string, params url.Val
 		if body != nil {
 			req.Header.Set("Content-Type", contentType)
 		}
-		if p.Authenticated() {
-			req.Header.Set("Authorization", "Bearer "+p.token)
+		if token := p.session.Token(); token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
 		}
 		return req, nil
 	}, res)

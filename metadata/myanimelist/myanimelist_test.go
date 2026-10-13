@@ -95,7 +95,7 @@ func TestSetMangaProgress(t *testing.T) {
 				}
 				_, _ = w.Write([]byte(`{"id":7` + tt.listStatus + `}`))
 			})
-			m.token = "token"
+			_ = m.session.Login("token", func() (metadata.User, error) { return nil, nil })
 
 			if err := m.SetMangaProgress(context.Background(), 7, tt.chapter); err != nil {
 				t.Fatal(err)

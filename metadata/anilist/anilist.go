@@ -7,6 +7,7 @@ import (
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/metadata/internal/session"
 )
 
 // Reference docs:
@@ -27,9 +28,7 @@ var _ metadata.Provider = (*Anilist)(nil)
 
 // Anilist is the Anilist client.
 type Anilist struct {
-	// authenticated user info
-	user  metadata.User
-	token string
+	session session.Session[metadata.User]
 
 	options Options
 	logger  *logger.Logger
@@ -159,5 +158,6 @@ func (p *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) e
 //
 // nil User means non-authenticated.
 func (p *Anilist) User() metadata.User {
-	return p.user
+	_, user := p.session.Get()
+	return user
 }

@@ -112,8 +112,8 @@ func (p *MyAnimeList) requestOnce(
 		return fmt.Errorf("mal: %s %s: %w", method, u.Path, err)
 	}
 
-	if p.Authenticated() {
-		headers.Set("Authorization", "Bearer "+p.token)
+	if token := p.session.Token(); token != "" {
+		headers.Set("Authorization", "Bearer "+token)
 	} else {
 		headers.Set("X-MAL-CLIENT-ID", p.options.ClientID)
 	}

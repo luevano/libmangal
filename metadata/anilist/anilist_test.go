@@ -205,7 +205,7 @@ func TestSetMangaProgress(t *testing.T) {
 				mutations = append(mutations, body.Query)
 				_, _ = w.Write([]byte(`{"data":{"SaveMediaListEntry":{"id":1}}}`))
 			})
-			a.token = "token"
+			_ = a.session.Login("token", func() (metadata.User, error) { return nil, nil })
 
 			if err := a.SetMangaProgress(context.Background(), 7, tt.chapter); err != nil {
 				t.Fatal(err)

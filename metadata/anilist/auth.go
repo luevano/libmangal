@@ -17,32 +17,26 @@ const (
 // Authenticated returns true if the Provider is
 // currently authenticated (user logged in).
 func (p *Anilist) Authenticated() bool {
-	return p.token != ""
+	return p.session.Token() != ""
 }
 
 // Login authorizes an user with the given access token.
 // When it fails the provider is logged out.
 func (p *Anilist) Login(ctx context.Context, token string) error {
-	p.token = token
-
-	user, err := p.getAuthenticatedUser(ctx)
+	err := p.session.Login(token, func() (metadata.User, error) {
+		return p.getAuthenticatedUser(ctx)
+	})
 	if err != nil {
-		// a failed login logs out, the old user doesn't go with no token
-		p.token, p.user = "", nil
 		return fmt.Errorf("login: %w", err)
 	}
-	p.user = user
-
 	return nil
 }
 
 // Logout de-authorizes the currently authorized user.
 func (p *Anilist) Logout() error {
-	if !p.Authenticated() {
+	if !p.session.Logout() {
 		return fmt.Errorf("logout: anilist: %w", metadata.ErrUnauthorized)
 	}
-	p.user = nil
-	p.token = ""
 	return nil
 }
 

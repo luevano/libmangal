@@ -41,11 +41,12 @@ func (p *Kitsu) SetMangaProgress(ctx context.Context, id, chapterNumber int) err
 	if id == 0 {
 		return errors.New("set progress: kitsu: invalid manga id 0")
 	}
-	if !p.Authenticated() || p.user == nil {
+	token, user := p.session.Get()
+	if token == "" || user == nil {
 		return fmt.Errorf("set progress of manga %d: kitsu: %w", id, metadata.ErrUnauthorized)
 	}
 
-	entry, err := p.libraryEntry(ctx, id)
+	entry, err := p.libraryEntry(ctx, user, id)
 	if err != nil {
 		return fmt.Errorf("set progress of manga %d: get library entry: %w", id, err)
 	}
@@ -66,7 +67,7 @@ func (p *Kitsu) SetMangaProgress(ctx context.Context, id, chapterNumber int) err
 			Type:       "libraryEntries",
 			Attributes: libraryEntryAttributes{Status: "current", Progress: chapterNumber},
 			Relationships: map[string]map[string]ref{
-				"user":  {"data": {ID: strconv.Itoa(p.user.IDProvider), Type: "users"}},
+				"user":  {"data": {ID: strconv.Itoa(user.IDProvider), Type: "users"}},
 				"media": {"data": {ID: strconv.Itoa(id), Type: "manga"}},
 			},
 		}
@@ -79,9 +80,9 @@ func (p *Kitsu) SetMangaProgress(ctx context.Context, id, chapterNumber int) err
 }
 
 // libraryEntry is the authenticated user's entry of the manga, nil if not in the library.
-func (p *Kitsu) libraryEntry(ctx context.Context, mangaID int) (*libraryEntry, error) {
+func (p *Kitsu) libraryEntry(ctx context.Context, user *User, mangaID int) (*libraryEntry, error) {
 	params := url.Values{}
-	params.Set("filter[user_id]", strconv.Itoa(p.user.IDProvider))
+	params.Set("filter[user_id]", strconv.Itoa(user.IDProvider))
 	params.Set("filter[manga_id]", strconv.Itoa(mangaID))
 	params.Set("fields[libraryEntries]", "status,progress")
 	params.Set("page[limit]", "1")

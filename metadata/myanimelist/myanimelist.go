@@ -11,6 +11,7 @@ import (
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/metadata/internal/session"
 )
 
 // Reference docs:
@@ -31,9 +32,7 @@ var _ metadata.Provider = (*MyAnimeList)(nil)
 
 // MyAnimeList is a metadata.Provider implementation for MyAnimeList.
 type MyAnimeList struct {
-	// authenticated user info
-	user  metadata.User
-	token string
+	session session.Session[metadata.User]
 
 	options Options
 	logger  *logger.Logger
@@ -185,7 +184,8 @@ func (p *MyAnimeList) SetMangaProgress(ctx context.Context, id, chapterNumber in
 //
 // nil User means non-authenticated.
 func (p *MyAnimeList) User() metadata.User {
-	return p.user
+	_, user := p.session.Get()
+	return user
 }
 
 // maxQueryRunes: longer titles (e.g. light novel style ones) are cut, the API is known to
