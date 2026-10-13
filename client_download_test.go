@@ -213,3 +213,54 @@ func TestAccount(t *testing.T) {
 		t.Errorf("got %+v", account)
 	}
 }
+
+func TestDownloadRejectsBadPageExtension(t *testing.T) {
+	for _, format := range []Format{FormatImages, FormatCBZ, FormatZIP, FormatTAR, FormatTARGZ, FormatPDF} {
+		t.Run(format.String(), func(t *testing.T) {
+			c, options := newDownloadTest(t)
+			options.Format = format
+			chapter := newFakeChapter(validMeta(), 2)
+			chapter.ext = "/../../../x"
+
+			_, err := c.DownloadChapterContext(context.Background(), chapter, options)
+			if err == nil || !strings.Contains(err.Error(), "invalid extension") {
+				t.Fatalf("err %v, want an invalid extension error", err)
+			}
+			if _, err := os.Stat(filepath.Join(filepath.Dir(options.Directory), "x")); !os.IsNotExist(err) {
+				t.Errorf("a page was written outside the directory (err %v)", err)
+			}
+		})
+	}
+}
+
+func TestPageNameInArchives(t *testing.T) {
+	chapter := newFakeChapter(validMeta(), 1)
+	chapter.ext = "/../../x"
+	pages := []mangadata.PageWithImage{&pageWithImage{Page: &fakePage{chapter: chapter, n: 1}, image: []byte("x")}}
+	c := newTestClient(t)
+	var buf strings.Builder
+	if _, err := c.saveCBZ(pages, &buf, nil, metadata.DefaultComicInfoOptions()); err == nil {
+		t.Error("CBZ: no error")
+	}
+	if err := c.saveZIP(pages, &buf); err == nil {
+		t.Error("ZIP: no error")
+	}
+	if err := c.saveTAR(pages, &buf); err == nil {
+		t.Error("TAR: no error")
+	}
+}
+
+func TestPageName(t *testing.T) {
+	for ext, ok := range map[string]bool{
+		".jpg": true, ".WEBP": true, ".jpeg": true, ".avif2": true,
+		"jpg": false, ".": false, "./x": false, "/../../x": false, ".j/g": false,
+		`.j\g`: false, ".toolongext": false, ".jpg\n": false, "..": false,
+	} {
+		chapter := newFakeChapter(nil, 1)
+		chapter.ext = ext
+		name, err := pageName(0, &fakePage{chapter: chapter, n: 1})
+		if ok != (err == nil) {
+			t.Errorf("%q: name %q, err %v", ext, name, err)
+		}
+	}
+}

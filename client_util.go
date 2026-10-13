@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -19,6 +20,29 @@ import (
 )
 
 type mangaImage string
+
+// pageExtension is what a page extension must look like: it ends up in file paths and
+// archive entry names, so anything else could escape the chapter.
+var pageExtension = regexp.MustCompile(`^\.[A-Za-z0-9]{1,8}$`)
+
+// pageName is the file (or archive entry) name of the i-th page (0-based).
+func pageName(i int, page mangadata.Page) (string, error) {
+	ext := page.Extension()
+	if !pageExtension.MatchString(ext) {
+		return "", fmt.Errorf("page %d: invalid extension %q", i+1, ext)
+	}
+	return fmt.Sprintf("%04d%s", i+1, ext), nil
+}
+
+// checkPageNames fails if any page has an invalid extension.
+func checkPageNames[P mangadata.Page](pages []P) error {
+	for i, page := range pages {
+		if _, err := pageName(i, page); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 const (
 	mangaImageCover  mangaImage = "cover"
@@ -99,8 +123,12 @@ func (c *Client) saveCBZ(
 	zipWriter := zip.NewWriter(out)
 
 	for i, page := range pages {
+		name, err := pageName(i, page)
+		if err != nil {
+			return "", err
+		}
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-			Name:     fmt.Sprintf("%04d%s", i+1, page.Extension()),
+			Name:     name,
 			Method:   zip.Store,
 			Modified: time.Now(),
 		})
@@ -153,9 +181,13 @@ func (c *Client) saveTAR(
 	tarWriter := tar.NewWriter(out)
 
 	for i, page := range pages {
+		name, err := pageName(i, page)
+		if err != nil {
+			return err
+		}
 		image := page.Image()
-		err := tarWriter.WriteHeader(&tar.Header{
-			Name:    fmt.Sprintf("%04d%s", i+1, page.Extension()),
+		err = tarWriter.WriteHeader(&tar.Header{
+			Name:    name,
 			Size:    int64(len(image)),
 			Mode:    int64(c.options.ModeFile),
 			ModTime: time.Now(),
@@ -195,8 +227,12 @@ func (c *Client) saveZIP(
 	zipWriter := zip.NewWriter(out)
 
 	for i, page := range pages {
+		name, err := pageName(i, page)
+		if err != nil {
+			return err
+		}
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-			Name:     fmt.Sprintf("%04d%s", i+1, page.Extension()),
+			Name:     name,
 			Method:   zip.Store,
 			Modified: time.Now(),
 		})

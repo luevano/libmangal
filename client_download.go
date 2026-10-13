@@ -266,6 +266,9 @@ func (c *Client) downloadChapter(
 	if err != nil {
 		return "", 0, err
 	}
+	if err := checkPageNames(pages); err != nil {
+		return "", 0, err
+	}
 
 	total := len(pages)
 	images := func(done int) {
@@ -298,7 +301,10 @@ func (c *Client) downloadChapter(
 			return "", 0, err
 		}
 		for i, page := range downloadedPages {
-			name := fmt.Sprintf("%04d%s", i+1, page.Extension())
+			name, err := pageName(i, page)
+			if err != nil {
+				return "", 0, err
+			}
 			if err := afero.WriteFile(c.options.FS, filepath.Join(path, name), page.Image(), c.options.ModeFile); err != nil {
 				return "", 0, err
 			}

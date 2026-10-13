@@ -36,6 +36,8 @@ type fakeChapter struct {
 	info   mangadata.ChapterInfo
 	volume *fakeVolume
 	pages  int
+	// ext of the pages, ".jpg" if empty
+	ext string
 }
 
 func (c *fakeChapter) String() string              { return c.info.Title }
@@ -48,8 +50,13 @@ type fakePage struct {
 }
 
 func (p *fakePage) String() string             { return fmt.Sprintf("page %d", p.n) }
-func (p *fakePage) Extension() string          { return ".jpg" }
 func (p *fakePage) Chapter() mangadata.Chapter { return p.chapter }
+func (p *fakePage) Extension() string {
+	if p.chapter.ext != "" {
+		return p.chapter.ext
+	}
+	return ".jpg"
+}
 
 // fakeProvider serves chapters made with newFakeChapter, images are a few bytes
 // with the page number.
