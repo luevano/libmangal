@@ -3,6 +3,8 @@ package libmangal
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/mangadata"
@@ -151,23 +153,37 @@ func (c *Client) ChapterPagesContext(ctx context.Context, chapter mangadata.Chap
 }
 
 // ProviderName determines the provider directory name.
+//
+// Names from ClientOptions that aren't a single path element (empty, ".", "..",
+// or with a path separator) are sanitized with SanitizeName, for all the name methods.
 func (c *Client) ProviderName(provider ProviderInfo) string {
-	return c.options.ProviderName(provider)
+	return c.safeName("provider", c.options.ProviderName(provider))
 }
 
 // MangaName determines the manga directory name.
 func (c *Client) MangaName(manga mangadata.Manga) string {
-	return c.options.MangaName(c.Info(), manga)
+	return c.safeName("manga", c.options.MangaName(c.Info(), manga))
 }
 
 // VolumeName determines the volume directory name.
 // E.g. "Vol. 1" or "Volume 1"
 func (c *Client) VolumeName(volume mangadata.Volume) string {
-	return c.options.VolumeName(c.Info(), volume)
+	return c.safeName("volume", c.options.VolumeName(c.Info(), volume))
 }
 
 // ChapterName determines the chapter file name.
 // E.g. "[001] chapter 1" or "Chainsaw Man - Ch. 1"
 func (c *Client) ChapterName(chapter mangadata.Chapter, format Format) string {
-	return c.options.ChapterName(c.Info(), chapter) + format.Extension()
+	return c.safeName("chapter", c.options.ChapterName(c.Info(), chapter)) + format.Extension()
+}
+
+// safeName keeps name from escaping the directory it's joined to.
+func (c *Client) safeName(what, name string) string {
+	switch {
+	case name == "", name == ".", name == "..", strings.ContainsAny(name, "/"+string(filepath.Separator)):
+		safe := sanitizePath(name)
+		c.logger.Log("%s name %q isn't a valid file name, using %q", what, name, safe)
+		return safe
+	}
+	return name
 }

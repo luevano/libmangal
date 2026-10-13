@@ -264,3 +264,32 @@ func TestPageName(t *testing.T) {
 		}
 	}
 }
+
+func TestDownloadUnsafeNames(t *testing.T) {
+	options := DefaultClientOptions()
+	options.ProviderName = func(ProviderInfo) string { return "." }
+	options.MangaName = func(ProviderInfo, mangadata.Manga) string { return "../../x" }
+	options.VolumeName = func(ProviderInfo, mangadata.Volume) string { return "" }
+	options.ChapterName = func(ProviderInfo, mangadata.Chapter) string { return ".." }
+	c, err := NewClientContext(context.Background(), fakeLoader{&fakeProvider{}}, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	down := DefaultDownloadOptions()
+	down.Directory = filepath.Join(t.TempDir(), "a", "b")
+	down.SearchMetadata = false
+	down.CreateProviderDir, down.CreateMangaDir, down.CreateVolumeDir = true, true, true
+	down.Format = FormatImages
+
+	got, err := c.DownloadChapterContext(context.Background(), newFakeChapter(validMeta(), 1), down)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(down.Directory, "_", ".._.._x", "_")
+	if got.Directory != want || got.Filename != "_" {
+		t.Errorf("downloaded to %q %q, want %q %q", got.Directory, got.Filename, want, "_")
+	}
+	if _, err := os.Stat(filepath.Join(want, "_", "0001.jpg")); err != nil {
+		t.Error(err)
+	}
+}
