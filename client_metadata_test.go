@@ -3,7 +3,9 @@ package libmangal
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
+	"sync"
 	"testing"
 
 	"github.com/luevano/libmangal/mangadata"
@@ -183,5 +185,34 @@ func TestMatchMangas(t *testing.T) {
 	}
 	if found[2] {
 		t.Errorf("untitled found: %+v", matches[2])
+	}
+}
+
+func TestSharedMetadataProviderKeepsItsLogger(t *testing.T) {
+	meta := &fakeMetaProvider{source: metadata.IDSourceAnilist, logger: newTestLogger()}
+	shared := withCache(t, meta)
+	var mu sync.Mutex
+	var lines []string
+	shared.Logger().SetOnLog(func(format string, a ...any) {
+		mu.Lock()
+		lines = append(lines, fmt.Sprintf(format, a...))
+		mu.Unlock()
+	})
+
+	var wg sync.WaitGroup
+	for range 4 {
+		wg.Go(func() {
+			c := newTestClient(t, nil...)
+			if err := c.SetMetadataProvider(shared); err != nil {
+				t.Error(err)
+			}
+			if _, _, err := shared.SearchByIDContext(context.Background(), 1); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	wg.Wait()
+	if len(lines) != 4 {
+		t.Errorf("provider hook got %d lines, want 4: %q", len(lines), lines)
 	}
 }

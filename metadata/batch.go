@@ -55,7 +55,7 @@ func (p *ProviderWithCache) SearchManyContext(ctx context.Context, queries []str
 		return results, nil
 	}
 
-	p.logger.Log("searching manga metadata with %d queries on %q", len(missing), p.Info().Name)
+	p.Logger().Log("searching manga metadata with %d queries on %q", len(missing), p.Info().Name)
 	var searched [][]Metadata
 	if batcher, ok := p.provider.(Batcher); ok {
 		var err error
@@ -293,7 +293,7 @@ func (p *ProviderWithCache) FindClosestManyContext(ctx context.Context, queries 
 				matches[i], found[i], done[i] = Match{Metadata: meta, Score: Score(queries[i], meta), Bound: true}, true, true
 				continue
 			}
-			p.logger.Log("id %d bound to title %q not found, searching by title", id, queries[i].Titles[0])
+			p.Logger().Log("id %d bound to title %q not found, searching by title", id, queries[i].Titles[0])
 		}
 	}
 
@@ -332,7 +332,7 @@ func (p *ProviderWithCache) FindClosestManyContext(ctx context.Context, queries 
 			continue
 		}
 		title := queries[i].Titles[0]
-		p.logger.Log("closest to %q: %q with id %s (score %.2f)", title, match.Metadata, match.Metadata.ID().Raw, match.Score)
+		p.Logger().Log("closest to %q: %q with id %s (score %.2f)", title, match.Metadata, match.Metadata.ID().Raw, match.Score)
 		if match.Bad() {
 			continue
 		}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/philippgille/gokv"
@@ -124,7 +125,10 @@ type Provider interface {
 type ProviderWithCache struct {
 	provider Provider
 	store    store
-	logger   *logger.Logger
+
+	// mu guards logger, the provider may be shared by several clients
+	mu     sync.Mutex
+	logger *logger.Logger
 }
 
 // NewProviderWithCache constructs new Provider with cache given the Provider.
@@ -177,16 +181,26 @@ func (p *ProviderWithCache) Info() ProviderInfo {
 	return p.provider.Info()
 }
 
-// SetLogger sets logger to use for this provider.
+// SetLogger sets logger to use for this provider and the wrapped Provider.
+//
+// A nil logger is ignored. Set it before the provider is in use: the wrapped
+// Provider's SetLogger needn't be safe to call concurrently with its requests.
 func (p *ProviderWithCache) SetLogger(logger *logger.Logger) {
+	if logger == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.logger = logger
-	p.provider.SetLogger(p.logger)
+	p.provider.SetLogger(logger)
 }
 
 // Logger returns the set logger.
 //
 // Always returns a non-nil logger.
 func (p *ProviderWithCache) Logger() *logger.Logger {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	return p.logger
 }
 
@@ -199,7 +213,7 @@ func (p *ProviderWithCache) SearchByID(id int) (Metadata, bool, error) {
 
 // SearchByIDContext is SearchByID with a context.
 func (p *ProviderWithCache) SearchByIDContext(ctx context.Context, id int) (Metadata, bool, error) {
-	p.logger.Log("searching manga metadata with id %d on %q", id, p.Info().Name)
+	p.Logger().Log("searching manga metadata with id %d on %q", id, p.Info().Name)
 	meta, found, err := p.store.getMeta(id)
 	if err != nil {
 		return nil, false, p.cacheError(err)
@@ -232,7 +246,7 @@ func (p *ProviderWithCache) Search(query string) ([]Metadata, error) {
 
 // SearchContext is Search with a context.
 func (p *ProviderWithCache) SearchContext(ctx context.Context, query string) ([]Metadata, error) {
-	p.logger.Log("searching manga metadata with query %q on %q", query, p.Info().Name)
+	p.Logger().Log("searching manga metadata with query %q on %q", query, p.Info().Name)
 	ids, found, err := p.store.getQueryIDs(query)
 	if err != nil {
 		return nil, p.cacheError(err)
@@ -293,7 +307,7 @@ func (p *ProviderWithCache) FindClosest(query Query) (match Match, found bool, e
 
 // FindClosestContext is FindClosest with a context.
 func (p *ProviderWithCache) FindClosestContext(ctx context.Context, query Query) (match Match, found bool, err error) {
-	p.logger.Log("finding closest manga metadata to %q on %q", query.Titles, p.Info().Name)
+	p.Logger().Log("finding closest manga metadata to %q on %q", query.Titles, p.Info().Name)
 	matches, founds, err := p.FindClosestManyContext(ctx, []Query{query})
 	if err != nil {
 		return Match{}, false, err
@@ -304,7 +318,7 @@ func (p *ProviderWithCache) FindClosestContext(ctx context.Context, query Query)
 // BindTitleWithID sets a given id to a title, so on each title search
 // the same manga metadata with that id is obtained.
 func (p *ProviderWithCache) BindTitleWithID(title string, id int) error {
-	p.logger.Log("binding manga title %q to manga metadata id %d on %q", title, id, p.Info().Name)
+	p.Logger().Log("binding manga title %q to manga metadata id %d on %q", title, id, p.Info().Name)
 	if err := p.store.setTitleID(title, id); err != nil {
 		return p.cacheError(err)
 	}
@@ -320,7 +334,7 @@ func (p *ProviderWithCache) SetMangaProgress(id, chapterNumber int) error {
 
 // SetMangaProgressContext is SetMangaProgress with a context.
 func (p *ProviderWithCache) SetMangaProgressContext(ctx context.Context, id, chapterNumber int) error {
-	p.logger.Log("setting manga chapter progress (%d) for manga id %d on %q", chapterNumber, id, p.Info().Name)
+	p.Logger().Log("setting manga chapter progress (%d) for manga id %d on %q", chapterNumber, id, p.Info().Name)
 	return p.provider.SetMangaProgress(ctx, id, chapterNumber)
 }
 
@@ -344,13 +358,13 @@ func (p *ProviderWithCache) Login(token string) error {
 
 // LoginContext is Login with a context.
 func (p *ProviderWithCache) LoginContext(ctx context.Context, token string) error {
-	p.logger.Log("logging in to %q", p.Info().Name)
+	p.Logger().Log("logging in to %q", p.Info().Name)
 	return p.provider.Login(ctx, token)
 }
 
 // Logout de-authorizes the currently authorized user.
 func (p *ProviderWithCache) Logout() error {
-	p.logger.Log("logging out of %q", p.Info().Name)
+	p.Logger().Log("logging out of %q", p.Info().Name)
 	return p.provider.Logout()
 }
 

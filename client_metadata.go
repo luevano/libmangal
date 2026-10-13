@@ -17,6 +17,9 @@ import (
 var openFile = open.Run
 
 // SetMetadataProvider will add or update the given metadata Provider.
+//
+// The provider keeps its own logger (ProviderWithCache.SetLogger), it may be shared
+// by several clients.
 func (c *Client) SetMetadataProvider(provider *metadata.ProviderWithCache) error {
 	if provider == nil {
 		return errors.New("nil metadata provider")
@@ -27,7 +30,6 @@ func (c *Client) SetMetadataProvider(provider *metadata.ProviderWithCache) error
 		return fmt.Errorf("metadata provider %q: invalid source %d", provider.Info().ID, id)
 	}
 
-	provider.SetLogger(c.logger)
 	if _, ok := c.meta[id]; !ok {
 		c.metaOrder = append(c.metaOrder, id)
 	}
