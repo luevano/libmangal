@@ -205,3 +205,59 @@ func TestHugeErrorBody(t *testing.T) {
 		t.Errorf("got a %d bytes error", len(err.Error()))
 	}
 }
+
+func TestLoginUser(t *testing.T) {
+	m := newTestMAL(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v2/users/@me" || r.Header.Get("Authorization") != "Bearer token" {
+			t.Errorf("got %s with %q", r.URL.Path, r.Header.Get("Authorization"))
+		}
+		_, _ = w.Write([]byte(`{"id":1,"name":"david","picture":"avatar.png"}`))
+	})
+	if err := m.Logout(); !errors.Is(err, metadata.ErrUnauthorized) {
+		t.Errorf("logout before login: %v", err)
+	}
+	if err := m.Login(context.Background(), "token"); err != nil || !m.Authenticated() {
+		t.Fatalf("login: %v", err)
+	}
+	u := m.User()
+	if u.String() != "david (1)" || u.About() != "" || u.Avatar() != "avatar.png" || u.URL() != "https://myanimelist.net/profile/david" || u.Source() != metadata.IDSourceMyAnimeList {
+		t.Errorf("user %q %q %q %q", u.String(), u.Avatar(), u.URL(), u.Source())
+	}
+	if err := m.Logout(); err != nil || m.Authenticated() || m.User() != nil {
+		t.Errorf("logout: %v, authenticated=%t", err, m.Authenticated())
+	}
+}
+
+func TestSearchByID(t *testing.T) {
+	m := newTestMAL(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v2/manga/2" {
+			t.Errorf("path %q", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"id":2,"title":"Berserk",
+			"main_picture":{"medium":"medium.jpg"},
+			"alternative_titles":{"synonyms":["Berserk: The Prototype"],"en":"Berserk","ja":"ベルセルク"},
+			"start_date":"1989-08-25","synopsis":"Guts","mean":9.47,"nsfw":"gray",
+			"genres":[{"id":1,"name":"Action"}],"media_type":"manga","status":"on_hiatus","num_chapters":0,
+			"authors":[{"node":{"first_name":"Kentarou","last_name":"Miura"},"role":"Story & Art"},{"node":{"first_name":"Kouji","last_name":"Mori"},"role":"Story"}]}`))
+	})
+
+	meta, found, err := m.SearchByID(context.Background(), 2)
+	if err != nil || !found {
+		t.Fatalf("got found=%t, %v", found, err)
+	}
+	if err := metadata.Validate(meta); err != nil {
+		t.Fatal(err)
+	}
+	if meta.String() != "Berserk (1989) [malid-2]" || len(meta.AlternateTitles()) != 3 || meta.Cover() != "medium.jpg" || meta.Banner() != "" {
+		t.Errorf("got %q, titles %q, cover %q", meta.String(), meta.AlternateTitles(), meta.Cover())
+	}
+	if fmt.Sprint(meta.Authors()) != "[Kentarou Miura Kouji Mori]" || fmt.Sprint(meta.Artists()) != "[Kentarou Miura]" || meta.Translators() != nil || meta.Letterers() != nil {
+		t.Errorf("authors %q, artists %q", meta.Authors(), meta.Artists())
+	}
+	if fmt.Sprint(meta.Genres()) != "[Action]" || len(meta.Tags()) != 0 || len(meta.Characters()) != 0 || meta.Description() != "Guts" || meta.Score() < 4.7 || meta.Score() > 4.8 {
+		t.Errorf("genres %q, description %q, score %v", meta.Genres(), meta.Description(), meta.Score())
+	}
+	if meta.Status() != metadata.StatusHiatus || meta.Country() != "JP" || meta.URL() != "https://myanimelist.net/manga/2" || meta.EndDate() != (metadata.Date{}) || len(meta.ExtraIDs()) != 0 {
+		t.Errorf("status %q, country %q, url %q, end %v", meta.Status(), meta.Country(), meta.URL(), meta.EndDate())
+	}
+}

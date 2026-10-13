@@ -332,3 +332,92 @@ func TestMangaStaffRoles(t *testing.T) {
 		}
 	}
 }
+
+func TestSearchByIDsChunks(t *testing.T) {
+	var requests atomic.Int32
+	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		var body apiRequestBody
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		// every id is known except 13
+		var media []any
+		for _, id := range body.Variables["ids"].([]any) {
+			if id.(float64) != 13 {
+				media = append(media, map[string]any{"id": id, "title": map[string]any{"english": "x"}})
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"page": map[string]any{"media": media}}})
+	})
+
+	ids := make([]int, idsPerRequest+5)
+	for i := range ids {
+		ids[i] = i + 1
+	}
+	var reports []progress.Status
+	ctx := progress.WithReporter(context.Background(), func(s progress.Status) { reports = append(reports, s) })
+	found, err := a.SearchByIDs(ctx, ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requests.Load() != 2 || len(reports) != 2 || reports[1].Done != 2 || reports[1].Total != 2 {
+		t.Errorf("%d requests, reports %v; want 2 requests reported", requests.Load(), reports)
+	}
+	if len(found) != len(ids)-1 || found[13] != nil || found[len(ids)].ID().Value() != len(ids) {
+		t.Errorf("found %d: %v", len(found), found)
+	}
+}
+
+func TestLoginUser(t *testing.T) {
+	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"viewer":{"id":1,"name":"david","about":"hi","avatar":{"medium":"avatar.png"},"siteUrl":"https://anilist.co/user/david"}}}`))
+	})
+	if err := a.Logout(); !errors.Is(err, metadata.ErrUnauthorized) {
+		t.Errorf("logout before login: %v", err)
+	}
+	if err := a.Login(context.Background(), "token"); err != nil || !a.Authenticated() {
+		t.Fatalf("login: %v", err)
+	}
+	u := a.User()
+	if u.String() != "david (1)" || u.About() != "hi" || u.Avatar() != "avatar.png" || u.URL() != "https://anilist.co/user/david" || u.Source() != metadata.IDSourceAnilist {
+		t.Errorf("user %q %q %q %q %q", u, u.About(), u.Avatar(), u.URL(), u.Source())
+	}
+	if err := a.Logout(); err != nil || a.Authenticated() || a.User() != nil {
+		t.Errorf("logout: %v, authenticated=%t", err, a.Authenticated())
+	}
+}
+
+func TestMangaFields(t *testing.T) {
+	var m Manga
+	if err := json.Unmarshal([]byte(`{
+		"id": 30002, "idMal": 2,
+		"title": {"romaji": "Berserk", "native": "ベルセルク"},
+		"synonyms": ["Berserk", " Kenpuu Denki "],
+		"averageScore": 94, "description": "Guts", "status": "HIATUS", "chapters": 380,
+		"coverImage": {"large": "large.jpg", "medium": "medium.jpg"}, "bannerImage": "banner.jpg",
+		"tags": [{"name": "Gore", "rank": 90}, {"name": "Cats", "rank": 20}],
+		"staff": {"edges": [{"role": "Story & Art", "node": {"name": {"full": "Kentarou Miura"}}}]},
+		"genres": ["Action"], "characters": {"nodes": [{"name": {"full": "Guts"}}]},
+		"startDate": {"year": 1989, "month": 8, "day": 25},
+		"countryOfOrigin": "JP", "isAdult": true, "siteUrl": "https://anilist.co/manga/30002"
+	}`), &m); err != nil {
+		t.Fatal(err)
+	}
+	if err := metadata.Validate(&m); err != nil {
+		t.Fatal(err)
+	}
+	if m.String() != "Berserk (1989) [alid-30002]" || m.Title() != "Berserk" || !slices.Equal(m.AlternateTitles(), []string{"ベルセルク", "Kenpuu Denki"}) {
+		t.Errorf("titles %q %q", m.String(), m.AlternateTitles())
+	}
+	if m.Score() != 4.7 || m.Description() != "Guts" || m.Status() != metadata.StatusHiatus || m.Chapters() != 380 {
+		t.Errorf("score %v, description %q, status %q, chapters %d", m.Score(), m.Description(), m.Status(), m.Chapters())
+	}
+	if m.Cover() != "large.jpg" || m.Banner() != "banner.jpg" || !slices.Equal(m.Tags(), []string{"Gore"}) || !slices.Equal(m.Genres(), []string{"Action"}) || !slices.Equal(m.Characters(), []string{"Guts"}) {
+		t.Errorf("cover %q, banner %q, tags %q, genres %q, characters %q", m.Cover(), m.Banner(), m.Tags(), m.Genres(), m.Characters())
+	}
+	if m.Country() != "JP" || m.AgeRating() != metadata.AgeRatingAdultsOnly || m.URL() != "https://anilist.co/manga/30002" || m.StartDate().Year != 1989 || m.EndDate() != (metadata.Date{}) {
+		t.Errorf("country %q, age %q, url %q, dates %v %v", m.Country(), m.AgeRating(), m.URL(), m.StartDate(), m.EndDate())
+	}
+	if ids := m.ExtraIDs(); len(ids) != 1 || ids[0].Code != metadata.IDCodeMyAnimeList || ids[0].Value() != 2 {
+		t.Errorf("extra ids %v", ids)
+	}
+}
