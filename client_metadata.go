@@ -9,6 +9,7 @@ import (
 
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/progress"
 	"github.com/skratchdot/open-golang/open"
 )
 
@@ -70,16 +71,26 @@ func (c *Client) SearchMetadataContext(
 
 	// a failing provider shouldn't stop the others from being searched
 	var errs []error
+	// why the previous provider didn't do, for the status
+	var previous string
 	for _, id := range c.metaOrder {
 		p := c.meta[id]
+		name := p.Info().Name
+		if previous == "" {
+			progress.Report(ctx, progress.Status{Source: "metadata", Message: fmt.Sprintf("searching %s for %q", name, manga)})
+		} else {
+			progress.Report(ctx, progress.Status{Source: "metadata", Message: fmt.Sprintf("%s, trying %s", previous, name)})
+		}
 		meta, found, err := c.SearchByMangaContext(ctx, p, manga)
 		if err != nil {
 			c.logger.Log("searching metadata for manga %q on %q: %s", manga, p, err)
 			errs = append(errs, err)
+			previous = name + " failed"
 			continue
 		}
 		if !found {
 			c.logger.Log("no metadata found for manga %q on %q", manga, p)
+			previous = "no " + name + " match"
 			continue
 		}
 

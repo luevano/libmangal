@@ -3,10 +3,12 @@ package libmangal
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/progress"
 	"github.com/skratchdot/open-golang/open"
 )
 
@@ -77,9 +79,15 @@ func TestSearchMetadataSkipsFailingProvider(t *testing.T) {
 	manga := newFakeChapter(nil, 1).volume.manga
 
 	c := newTestClient(t, failing, mal)
-	meta, err := c.SearchMetadataContext(context.Background(), manga)
+	var got []string
+	ctx := progress.WithReporter(context.Background(), func(s progress.Status) { got = append(got, s.String()) })
+	meta, err := c.SearchMetadataContext(ctx, manga)
 	if err != nil || meta == nil || meta.ID().Value() != 2 {
 		t.Fatalf("got %v, %v, want the MAL result", meta, err)
+	}
+	want := []string{`searching fake-al for "Fake Manga"`, "fake-al failed, trying fake-mal"}
+	if !slices.Equal(got, want) {
+		t.Errorf("reported %q, want %q", got, want)
 	}
 
 	c = newTestClient(t, failing)
