@@ -22,4 +22,8 @@ func TestReport(t *testing.T) {
 			t.Errorf("got %q, want %q", got[i], want[i])
 		}
 	}
+
+	if (Status{Message: "x"}).IsMinor() || !(Status{Message: "x", Done: 1, Total: 2}).IsMinor() || !(Status{Minor: true}).IsMinor() {
+		t.Error("IsMinor")
+	}
 }

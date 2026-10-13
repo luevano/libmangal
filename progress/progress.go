@@ -15,6 +15,14 @@ type Status struct {
 	Message string
 	// Done and Total count the steps (e.g. request 3 of 7), Total is 0 when there's no count.
 	Done, Total int
+	// Minor is a routine step (e.g. the next page of results): worth showing while it
+	// happens, not worth a log line. Counted steps (Total > 0) are minor too, see IsMinor.
+	Minor bool
+}
+
+// IsMinor is true for a routine step: Minor, or counted.
+func (s Status) IsMinor() bool {
+	return s.Minor || s.Total > 0
 }
 
 // String is the message, followed by the count when there's one.

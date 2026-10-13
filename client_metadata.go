@@ -77,7 +77,7 @@ func (c *Client) SearchMetadataContext(
 		p := c.meta[id]
 		name := p.Info().Name
 		if previous == "" {
-			progress.Report(ctx, progress.Status{Source: "metadata", Message: fmt.Sprintf("searching %s for %q", name, manga)})
+			progress.Report(ctx, progress.Status{Source: "metadata", Message: fmt.Sprintf("searching %s for %q", name, manga), Minor: true})
 		} else {
 			progress.Report(ctx, progress.Status{Source: "metadata", Message: fmt.Sprintf("%s, trying %s", previous, name)})
 		}
