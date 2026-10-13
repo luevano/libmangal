@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync"
 
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
@@ -38,6 +39,7 @@ func (c *Client) DownloadChapterContext(
 	// Found metadata will be replacing the incoming one,
 	// even when no metadata is found (nil)
 	if options.SearchMetadata {
+		options.progress(DownloadProgress{Chapter: chapter, Stage: DownloadStageMetadata})
 		m, err := c.SearchMetadataContext(ctx, manga)
 		if err != nil {
 			return nil, fmt.Errorf("search metadata: %w", err)
@@ -259,15 +261,24 @@ func (c *Client) downloadChapter(
 	path string,
 	options DownloadOptions,
 ) (metadata.DownloadStatus, int, error) {
+	options.progress(DownloadProgress{Chapter: chapter, Stage: DownloadStagePages})
 	pages, err := c.ChapterPagesContext(ctx, chapter)
 	if err != nil {
 		return "", 0, err
 	}
 
-	downloadedPages, err := c.DownloadPagesInBatchContext(ctx, pages)
+	total := len(pages)
+	images := func(done int) {
+		options.progress(DownloadProgress{Chapter: chapter, Stage: DownloadStageImages, Done: done, Total: total})
+	}
+	if total > 0 {
+		images(0)
+	}
+	downloadedPages, err := c.downloadPages(ctx, pages, images)
 	if err != nil {
 		return "", 0, err
 	}
+	options.progress(DownloadProgress{Chapter: chapter, Stage: DownloadStageSaving, Done: total, Total: total})
 
 	if options.ImageTransformer != nil {
 		for i, page := range downloadedPages {
@@ -364,6 +375,16 @@ func (c *Client) DownloadPagesInBatchContext(
 	ctx context.Context,
 	pages []mangadata.Page,
 ) ([]mangadata.PageWithImage, error) {
+	return c.downloadPages(ctx, pages, nil)
+}
+
+// downloadPages is DownloadPagesInBatchContext, onDone (if not nil) gets the count of
+// downloaded pages after each one, one call at a time.
+func (c *Client) downloadPages(
+	ctx context.Context,
+	pages []mangadata.Page,
+	onDone func(done int),
+) ([]mangadata.PageWithImage, error) {
 	if len(pages) == 0 {
 		return nil, errors.New("no pages")
 	}
@@ -374,6 +395,8 @@ func (c *Client) DownloadPagesInBatchContext(
 		g.SetLimit(c.options.ConcurrentPages)
 	}
 	downloadedPages := make([]mangadata.PageWithImage, len(pages))
+	var mu sync.Mutex
+	done := 0
 	for i, page := range pages {
 		g.Go(func() error {
 			c.logger.Log("page #%03d: downloading", i+1)
@@ -386,6 +409,12 @@ func (c *Client) DownloadPagesInBatchContext(
 			c.logger.Log("page #%03d: done", i+1)
 
 			downloadedPages[i] = downloaded
+			if onDone != nil {
+				mu.Lock()
+				done++
+				onDone(done)
+				mu.Unlock()
+			}
 			return nil
 		})
 	}

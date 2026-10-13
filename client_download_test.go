@@ -3,8 +3,10 @@ package libmangal
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -68,6 +70,21 @@ func TestDownloadChapterStatus(t *testing.T) {
 	}
 	if down.ChapterStatus != metadata.DownloadStatusExists || down.Pages != 0 {
 		t.Errorf("chapter status %q, %d pages, want %q and 0 pages", down.ChapterStatus, down.Pages, metadata.DownloadStatusExists)
+	}
+}
+
+func TestDownloadProgress(t *testing.T) {
+	c, options := newDownloadTest(t)
+	var got []string
+	options.OnProgress = func(p DownloadProgress) {
+		got = append(got, fmt.Sprintf("%s %d/%d", p.Stage, p.Done, p.Total))
+	}
+	if _, err := c.DownloadChapterContext(context.Background(), newFakeChapter(validMeta(), 3), options); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"pages 0/0", "images 0/3", "images 1/3", "images 2/3", "images 3/3", "saving 3/3"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 

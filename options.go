@@ -111,6 +111,38 @@ type DownloadOptions struct {
 	//
 	// E.g. grayscale effect. Nil leaves the images as they are.
 	ImageTransformer func([]byte) ([]byte, error)
+
+	// OnProgress, if not nil, is called as the chapter download goes: at each stage, and
+	// after each page image. Calls don't overlap.
+	OnProgress func(DownloadProgress)
+}
+
+// DownloadStage is a step of a chapter download.
+type DownloadStage string
+
+const (
+	// DownloadStageMetadata: searching the manga's metadata (DownloadOptions.SearchMetadata).
+	DownloadStageMetadata DownloadStage = "metadata"
+	// DownloadStagePages: getting the chapter's list of pages.
+	DownloadStagePages DownloadStage = "pages"
+	// DownloadStageImages: downloading the page images, Done of Total.
+	DownloadStageImages DownloadStage = "images"
+	// DownloadStageSaving: writing the chapter and its metadata files.
+	DownloadStageSaving DownloadStage = "saving"
+)
+
+// DownloadProgress is where a chapter download is, see DownloadOptions.OnProgress.
+type DownloadProgress struct {
+	Chapter mangadata.Chapter
+	Stage   DownloadStage
+	// Done and Total count the page images (DownloadStageImages, and Total from then on).
+	Done, Total int
+}
+
+func (o DownloadOptions) progress(p DownloadProgress) {
+	if o.OnProgress != nil {
+		o.OnProgress(p)
+	}
 }
 
 func (o DownloadOptions) validate() error {
