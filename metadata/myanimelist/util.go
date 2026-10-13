@@ -1,6 +1,7 @@
 package myanimelist
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
@@ -9,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/luevano/libmangal/metadata/internal/ratelimit"
 )
 
 var mangaFields = strings.Join([]string{
@@ -59,7 +62,33 @@ type mangaNode struct {
 	Node *Manga `json:"node"`
 }
 
+// request sends a request to the API, retrying once when rate limited.
 func (p *MyAnimeList) request(
+	ctx context.Context,
+	method string,
+	path string,
+	params url.Values,
+	headers http.Header,
+	body io.Reader,
+	res any,
+) error {
+	var payload []byte
+	if body != nil {
+		var err error
+		if payload, err = io.ReadAll(body); err != nil {
+			return fmt.Errorf("mal: %s %s: read request body: %w", method, path, err)
+		}
+	}
+	return ratelimit.Retry(ctx, p.logger, info.ID, "MyAnimeList", func() error {
+		var body io.Reader
+		if payload != nil {
+			body = bytes.NewReader(payload)
+		}
+		return p.requestOnce(ctx, method, path, params, headers.Clone(), body, res)
+	})
+}
+
+func (p *MyAnimeList) requestOnce(
 	ctx context.Context,
 	method string,
 	path string,

@@ -170,3 +170,26 @@ func TestUserAgent(t *testing.T) {
 		t.Errorf("user agent %q, want %q", ua, DefaultUserAgent)
 	}
 }
+
+func TestRateLimitRetry(t *testing.T) {
+	var bodies []string
+	m := newTestMAL(t, func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, string(b))
+		if len(bodies) == 1 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	})
+
+	headers := http.Header{}
+	err := m.request(context.Background(), http.MethodPatch, "manga/1/my_list_status", nil, headers, strings.NewReader("num_chapters_read=3"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bodies) != 2 || bodies[1] != "num_chapters_read=3" {
+		t.Errorf("requests %q, want the body sent twice", bodies)
+	}
+}
