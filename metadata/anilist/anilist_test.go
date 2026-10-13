@@ -260,3 +260,20 @@ func TestNullMedia(t *testing.T) {
 		t.Errorf("by ids: got %v, %v", found, err)
 	}
 }
+
+func TestFailedLoginLogsOut(t *testing.T) {
+	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer good" {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"Invalid token","status":400}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"viewer":{"id":1,"name":"david"}}}`))
+	})
+	if err := a.Login(context.Background(), "good"); err != nil || a.User() == nil {
+		t.Fatalf("login: %v, user %v", err, a.User())
+	}
+	if err := a.Login(context.Background(), "bad"); err == nil || a.Authenticated() || a.User() != nil {
+		t.Errorf("got %v authenticated=%t user %v, want logged out", err, a.Authenticated(), a.User())
+	}
+}

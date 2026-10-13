@@ -139,3 +139,20 @@ func TestInvalidClientID(t *testing.T) {
 		t.Error("any 400 isn't a bad client id")
 	}
 }
+
+func TestFailedLoginLogsOut(t *testing.T) {
+	m := newTestMAL(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer good" {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":"invalid_token"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":1,"name":"david"}`))
+	})
+	if err := m.Login(context.Background(), "good"); err != nil || m.User() == nil {
+		t.Fatalf("login: %v, user %v", err, m.User())
+	}
+	if err := m.Login(context.Background(), "bad"); err == nil || m.Authenticated() || m.User() != nil {
+		t.Errorf("got %v authenticated=%t user %v, want logged out", err, m.Authenticated(), m.User())
+	}
+}

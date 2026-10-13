@@ -495,3 +495,19 @@ func TestRefreshToken(t *testing.T) {
 		t.Errorf("got %+v", token)
 	}
 }
+
+func TestFailedLoginLogsOut(t *testing.T) {
+	k := newTestKitsu(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer good" {
+			_, _ = w.Write([]byte(`{"data": [], "meta": {"count": 0}}`))
+			return
+		}
+		_, _ = w.Write([]byte(selfUser))
+	})
+	if err := k.Login(context.Background(), "good"); err != nil || k.User() == nil {
+		t.Fatalf("login: %v, user %v", err, k.User())
+	}
+	if err := k.Login(context.Background(), "bad"); err == nil || k.Authenticated() || k.User() != nil {
+		t.Errorf("got %v authenticated=%t user %v, want logged out", err, k.Authenticated(), k.User())
+	}
+}

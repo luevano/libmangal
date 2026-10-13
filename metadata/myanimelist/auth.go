@@ -23,13 +23,14 @@ func (p *MyAnimeList) Authenticated() bool {
 }
 
 // Login authorizes an user with the given access token.
+// When it fails the provider is logged out.
 func (p *MyAnimeList) Login(ctx context.Context, token string) error {
 	p.token = token
 
 	user, err := p.getAuthenticatedUser(ctx)
 	if err != nil {
-		// remove token as it's possible it's not valid
-		p.token = ""
+		// a failed login logs out, the old user doesn't go with no token
+		p.token, p.user = "", nil
 		return fmt.Errorf("login: %w", err)
 	}
 	p.user = user
