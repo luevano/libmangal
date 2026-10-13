@@ -405,7 +405,6 @@ func TestMangaGob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gob.RegisterName("kitsu-manga-test", &Manga{})
 
 	var buf bytes.Buffer
 	in := metadata.Metadata(mangas[0])
