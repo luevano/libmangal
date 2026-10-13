@@ -208,32 +208,14 @@ func (m *Manga) Artists() []string {
 	return artists
 }
 
-// Translators is the list of translators, in order of relevance.
+// Translators is always empty: MyAnimeList only has "Story" and "Art" roles.
 func (m *Manga) Translators() []string {
-	var translators []string
-	for _, author := range m.AuthorList {
-		role := strings.ToLower(author.Role)
-		if strings.Contains(role, "translator") { // TODO: check the actual role name (if any)
-			if name := author.Node.name(); name != "" {
-				translators = append(translators, name)
-			}
-		}
-	}
-	return translators
+	return nil
 }
 
-// Letterers is the list of letterers, in order of relevance.
+// Letterers is always empty: MyAnimeList only has "Story" and "Art" roles.
 func (m *Manga) Letterers() []string {
-	var letterers []string
-	for _, author := range m.AuthorList {
-		role := strings.ToLower(author.Role)
-		if strings.Contains(role, "lettering") { // TODO: check the actual role name (if any)
-			if name := author.Node.name(); name != "" {
-				letterers = append(letterers, name)
-			}
-		}
-	}
-	return letterers
+	return nil
 }
 
 // StartDate is the date the manga started publishing.
