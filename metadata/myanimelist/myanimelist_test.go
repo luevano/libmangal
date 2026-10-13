@@ -193,3 +193,15 @@ func TestRateLimitRetry(t *testing.T) {
 		t.Errorf("requests %q, want the body sent twice", bodies)
 	}
 }
+
+func TestHugeErrorBody(t *testing.T) {
+	m := newTestMAL(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"` + strings.Repeat("a", 1<<20) + `"}`))
+	})
+	_, err := m.Search(context.Background(), "berserk")
+	var httpErr *HTTPError
+	if !errors.As(err, &httpErr) || len(httpErr.Message) > maxErrorBody {
+		t.Errorf("got a %d bytes error", len(err.Error()))
+	}
+}

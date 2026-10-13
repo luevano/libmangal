@@ -77,6 +77,9 @@ type errorResponse struct {
 
 func (e errorResponse) codeMessage() (code, message string) {
 	if e.Error != "" {
+		if e.ErrorDescription == "" {
+			return e.Error, e.Error
+		}
 		return e.Error, e.Error + ": " + e.ErrorDescription
 	}
 	if len(e.Errors) == 0 {

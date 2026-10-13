@@ -295,3 +295,15 @@ func TestUserAgent(t *testing.T) {
 		t.Errorf("user agent %q, want %q", ua, DefaultUserAgent)
 	}
 }
+
+func TestHugeErrorBody(t *testing.T) {
+	a := newTestAnilist(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"errors":[{"message":"` + strings.Repeat("a", 1<<20) + `"}]}`))
+	})
+	_, err := a.Search(context.Background(), "berserk")
+	var httpErr *HTTPError
+	if !errors.As(err, &httpErr) || len(httpErr.Message) > maxErrorBody {
+		t.Errorf("got a %d bytes error", len(err.Error()))
+	}
+}

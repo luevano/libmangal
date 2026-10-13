@@ -62,6 +62,9 @@ type mangaNode struct {
 	Node *Manga `json:"node"`
 }
 
+// maxErrorBody is how much of an error response is read.
+const maxErrorBody = 1 << 16
+
 // request sends a request to the API, retrying once when rate limited.
 func (p *MyAnimeList) request(
 	ctx context.Context,
@@ -129,7 +132,7 @@ func (p *MyAnimeList) requestOnce(
 		return &RateLimitError{Method: method, Path: u.Path, RetryAfter: retryAfter(resp.Header)}
 	default:
 		var er errorResponse
-		_ = json.NewDecoder(resp.Body).Decode(&er)
+		_ = json.NewDecoder(io.LimitReader(resp.Body, maxErrorBody)).Decode(&er)
 		return &HTTPError{Method: method, Path: u.Path, StatusCode: resp.StatusCode, Message: er.String()}
 	}
 

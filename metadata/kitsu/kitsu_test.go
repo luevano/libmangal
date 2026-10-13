@@ -511,3 +511,14 @@ func TestFailedLoginLogsOut(t *testing.T) {
 		t.Errorf("got %v authenticated=%t user %v, want logged out", err, k.Authenticated(), k.User())
 	}
 }
+
+func TestOAuthErrorWithoutDescription(t *testing.T) {
+	k := newTestKitsu(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
+	})
+	_, err := k.PasswordToken(context.Background(), "david", "wrong")
+	if err == nil || strings.HasSuffix(err.Error(), ": ") || !strings.HasSuffix(err.Error(), "invalid_grant") {
+		t.Errorf("got %v", err)
+	}
+}

@@ -25,6 +25,9 @@ type apiResponse[Data any] struct {
 	Data Data `json:"data"`
 }
 
+// maxErrorBody is how much of an error response is read.
+const maxErrorBody = 1 << 16
+
 func sendRequest[Data any](
 	ctx context.Context,
 	anilist *Anilist,
@@ -59,7 +62,11 @@ func sendRequestOnce[Data any](
 
 	// errors come with a body like {"errors": [{"message": "Not Found.", "status": 404}]}
 	var res apiResponse[Data]
-	decodeErr := json.NewDecoder(resp.Body).Decode(&res)
+	body := io.Reader(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		body = io.LimitReader(body, maxErrorBody)
+	}
+	decodeErr := json.NewDecoder(body).Decode(&res)
 	if resp.StatusCode != http.StatusOK || len(res.Errors) != 0 {
 		httpErr := &HTTPError{StatusCode: resp.StatusCode}
 		if len(res.Errors) != 0 {

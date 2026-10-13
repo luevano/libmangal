@@ -128,6 +128,9 @@ func (p *Kitsu) request(ctx context.Context, method, path string, params url.Val
 	}, res)
 }
 
+// maxErrorBody is how much of an error response is read.
+const maxErrorBody = 1 << 16
+
 // send sends the request built by newReq, retrying once when rate limited.
 func (p *Kitsu) send(ctx context.Context, newReq func() (*http.Request, error), res any) error {
 	return ratelimit.Retry(ctx, p.logger, info.ID, "Kitsu", func() error {
@@ -157,7 +160,7 @@ func (p *Kitsu) sendOnce(newReq func() (*http.Request, error), res any) error {
 		return &RateLimitError{Method: req.Method, Path: req.URL.Path, RetryAfter: retryAfter(resp.Header)}
 	case resp.StatusCode < 200 || resp.StatusCode > 299:
 		var er errorResponse
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBody))
 		httpErr := &HTTPError{Method: req.Method, Path: req.URL.Path, StatusCode: resp.StatusCode}
 		if json.Unmarshal(raw, &er) == nil {
 			httpErr.Code, httpErr.Message = er.codeMessage()
