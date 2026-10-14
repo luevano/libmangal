@@ -9,7 +9,7 @@ type FilterOptions struct {
 	// Only if the source allows to filter by NSFW.
 	NSFW bool
 
-	// Language of the manga and chapter results, e.g. "en".
+	// Language of the manga and chapter results, e.g. "en", empty for any language.
 	//
 	// Only if the source allows to filter by language.
 	Language string
@@ -20,6 +20,17 @@ type FilterOptions struct {
 	// ShowUnavailableChapters also shows chapters that can't be downloaded,
 	// such as ones hosted on external sites (MangaDex chapters on MangaPlus).
 	ShowUnavailableChapters bool
+}
+
+// DefaultFilterOptions constructs FilterOptions that filter nothing:
+// NSFW included, any language, duplicate and unavailable chapters kept.
+func DefaultFilterOptions() FilterOptions {
+	return FilterOptions{
+		NSFW:                    true,
+		Language:                "",
+		AvoidDuplicateChapters:  false,
+		ShowUnavailableChapters: true,
+	}
 }
 
 // String is a stable representation of the filters, e.g. for cache keys.
