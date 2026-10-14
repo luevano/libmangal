@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/progress"
 )
 
 func newTestKitsu(t *testing.T, handler http.HandlerFunc) *Kitsu {
@@ -519,5 +520,25 @@ func TestOAuthErrorWithoutDescription(t *testing.T) {
 	_, err := k.PasswordToken(context.Background(), "david", "wrong")
 	if err == nil || strings.HasSuffix(err.Error(), ": ") || !strings.HasSuffix(err.Error(), "invalid_grant") {
 		t.Errorf("got %v", err)
+	}
+}
+
+func TestSearchManyProgress(t *testing.T) {
+	k := newTestKitsu(t, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data": []}`))
+	})
+	var reports []progress.Status
+	ctx := progress.WithReporter(context.Background(), func(s progress.Status) { reports = append(reports, s) })
+	if _, err := k.SearchMany(ctx, []string{"a", "b", "c"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(reports) != 3 || reports[2].Done != 3 || reports[2].Total != 3 || reports[2].Source != info.ID {
+		t.Errorf("reports %v, want one per request", reports)
+	}
+
+	// a single request isn't reported
+	reports = nil
+	if _, err := k.SearchMany(ctx, []string{"a"}); err != nil || len(reports) != 0 {
+		t.Errorf("reports %v, err %v", reports, err)
 	}
 }

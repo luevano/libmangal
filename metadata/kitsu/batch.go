@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/progress"
 )
 
 var _ metadata.Batcher = (*Kitsu)(nil)
@@ -18,6 +19,7 @@ var _ metadata.Batcher = (*Kitsu)(nil)
 func (p *Kitsu) SearchMany(ctx context.Context, queries []string) ([][]metadata.Metadata, error) {
 	results := make([][]metadata.Metadata, len(queries))
 	for i, query := range queries {
+		reportRequest(ctx, "searching Kitsu", i+1, len(queries))
 		metas, err := p.Search(ctx, query)
 		if err != nil {
 			return nil, err
@@ -33,6 +35,7 @@ func (p *Kitsu) SearchByIDs(ctx context.Context, ids []int) (map[int]metadata.Me
 	found := make(map[int]metadata.Metadata, len(ids))
 	for start := 0; start < len(ids); start += pageLimit {
 		chunk := ids[start:min(start+pageLimit, len(ids))]
+		reportRequest(ctx, "looking up Kitsu metadata", start/pageLimit+1, (len(ids)+pageLimit-1)/pageLimit)
 		strIDs := make([]string, len(chunk))
 		for i, id := range chunk {
 			strIDs[i] = strconv.Itoa(id)
@@ -54,4 +57,11 @@ func (p *Kitsu) SearchByIDs(ctx context.Context, ids []int) (map[int]metadata.Me
 		}
 	}
 	return found, nil
+}
+
+// reportRequest reports the request of a batch, when it takes more than one.
+func reportRequest(ctx context.Context, doing string, request, requests int) {
+	if requests > 1 {
+		progress.Report(ctx, progress.Status{Source: info.ID, Message: doing + ": request", Done: request, Total: requests})
+	}
 }
