@@ -8,6 +8,7 @@ package netutil
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -65,4 +66,27 @@ func RetryAfter(header string) time.Duration {
 // CapRetryAfter keeps wait between zero and MaxRetryAfter.
 func CapRetryAfter(wait time.Duration) time.Duration {
 	return min(max(wait, 0), MaxRetryAfter)
+}
+
+// RateLimitError: The site answered 429 too many requests. It matches ErrRateLimited.
+type RateLimitError struct {
+	// RetryAfter: How long the site asked to wait, 0 if it didn't say.
+	RetryAfter time.Duration
+}
+
+func (e *RateLimitError) Error() string {
+	if e.RetryAfter > 0 {
+		return fmt.Sprintf("429 too many requests (retry after %s)", e.RetryAfter)
+	}
+	return "429 too many requests"
+}
+
+func (e *RateLimitError) Is(target error) bool {
+	return target == ErrRateLimited
+}
+
+// RetryAfterDuration: How long to wait before trying again, for callers that don't import
+// netutil.
+func (e *RateLimitError) RetryAfterDuration() time.Duration {
+	return e.RetryAfter
 }
