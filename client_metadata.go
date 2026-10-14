@@ -5,32 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
 	"github.com/luevano/libmangal/progress"
+	"github.com/skratchdot/open-golang/open"
 )
 
 // openFile opens a file with the os default app, replaced in tests.
-var openFile = func(path string) error {
-	return openCommand(runtime.GOOS, path).Run()
-}
-
-func openCommand(goos, path string) *exec.Cmd {
-	switch goos {
-	case "windows":
-		return exec.Command(filepath.Join(os.Getenv("SYSTEMROOT"), "System32", "rundll32.exe"), "url.dll,FileProtocolHandler", path)
-	case "darwin":
-		return exec.Command("open", path)
-	default:
-		return exec.Command("xdg-open", path)
-	}
-}
+var openFile = open.Run
 
 // SetMetadataProvider will add or update the given metadata Provider.
 //

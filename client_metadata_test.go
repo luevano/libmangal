@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
@@ -12,6 +11,7 @@ import (
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
 	"github.com/luevano/libmangal/progress"
+	"github.com/skratchdot/open-golang/open"
 )
 
 func newTestClient(t *testing.T, metas ...metadata.Provider) *Client {
@@ -99,7 +99,8 @@ func TestSearchMetadataSkipsFailingProvider(t *testing.T) {
 }
 
 func TestReadChapterSyncsEnabledProviders(t *testing.T) {
-	stubOpenFile(t, func(string) error { return nil })
+	openFile = func(string) error { return nil }
+	t.Cleanup(func() { openFile = open.Run })
 
 	newProviders := func() (*fakeMetaProvider, *fakeMetaProvider, *fakeMetaProvider) {
 		ani := &fakeMetaProvider{source: metadata.IDSourceAnilist, byQuery: map[string][]metadata.Metadata{"Fake Manga": {newAniMeta(7, "Fake Manga")}}}
@@ -232,7 +233,8 @@ func TestSearchByMangaEmptyTitle(t *testing.T) {
 
 func TestReadChapterOpenError(t *testing.T) {
 	errNoApp := errors.New("no app")
-	stubOpenFile(t, func(string) error { return errNoApp })
+	openFile = func(string) error { return errNoApp }
+	t.Cleanup(func() { openFile = open.Run })
 
 	c := newTestClient(t)
 	err := c.ReadChapterContext(context.Background(), "/x/ch1.cbz", newFakeChapter(nil, 1), ReadOptions{})
@@ -242,27 +244,5 @@ func TestReadChapterOpenError(t *testing.T) {
 	}
 	if want := "open /x/ch1.cbz: no app"; err.Error() != want {
 		t.Errorf("got %q, want %q", err, want)
-	}
-}
-
-func stubOpenFile(t *testing.T, stub func(string) error) {
-	t.Helper()
-	orig := openFile
-	openFile = stub
-	t.Cleanup(func() { openFile = orig })
-}
-
-func TestOpenCommand(t *testing.T) {
-	for goos, want := range map[string][]string{
-		"linux":   {"xdg-open", "/x/ch1.cbz"},
-		"freebsd": {"xdg-open", "/x/ch1.cbz"},
-		"darwin":  {"open", "/x/ch1.cbz"},
-		"windows": {"rundll32.exe", "url.dll,FileProtocolHandler", "/x/ch1.cbz"},
-	} {
-		cmd := openCommand(goos, "/x/ch1.cbz")
-		got := append([]string{filepath.Base(cmd.Args[0])}, cmd.Args[1:]...)
-		if !slices.Equal(got, want) {
-			t.Errorf("%s: got %q, want %q", goos, got, want)
-		}
 	}
 }
