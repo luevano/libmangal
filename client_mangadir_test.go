@@ -229,3 +229,61 @@ func TestWriteMangaDirInfo(t *testing.T) {
 		t.Errorf("entries %v", entries)
 	}
 }
+
+type ctxKey struct{}
+
+// ctxIndex records the context values its Context methods got.
+type ctxIndex struct {
+	memIndex
+	got []any
+}
+
+func (m *ctxIndex) FindMangaDirContext(ctx context.Context, parent string, provider ProviderInfo, info MangaDirInfo) (string, bool, error) {
+	m.got = append(m.got, ctx.Value(ctxKey{}))
+	return m.FindMangaDir(parent, provider, info)
+}
+
+func (m *ctxIndex) RememberMangaDirContext(ctx context.Context, parent, name string, info MangaDirInfo) error {
+	m.got = append(m.got, ctx.Value(ctxKey{}))
+	return m.RememberMangaDir(parent, name, info)
+}
+
+func (m *ctxIndex) FindChapter(string, mangadata.Chapter, Format) (string, string, bool, error) {
+	return "", "", false, nil
+}
+
+func (m *ctxIndex) FindChapterContext(ctx context.Context, mangaDir string, chapter mangadata.Chapter, format Format) (string, string, bool, error) {
+	m.got = append(m.got, ctx.Value(ctxKey{}))
+	return m.FindChapter(mangaDir, chapter, format)
+}
+
+func TestIndexContext(t *testing.T) {
+	index := &ctxIndex{memIndex: memIndex{dirs: map[string]MangaDirInfo{}}}
+	options := DefaultClientOptions()
+	options.MangaDirIndex = index
+	options.ChapterIndex = index
+	c, err := NewClientContext(context.Background(), fakeLoader{&fakeProvider{}}, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	down := DefaultDownloadOptions()
+	down.Directory = t.TempDir()
+	down.SearchMetadata = false
+	down.ReuseMangaDir = true
+	ctx := context.WithValue(context.Background(), ctxKey{}, "v")
+	if _, err := c.DownloadChapterContext(ctx, newFakeChapter(validMeta(), 1), down); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.ChapterDirContext(ctx, newFakeChapter(validMeta(), 1), down); err != nil {
+		t.Fatal(err)
+	}
+	// find + chapter + remember on download, find on ChapterDirContext
+	if len(index.got) != 4 {
+		t.Fatalf("got %d context calls, want 4: %v", len(index.got), index.got)
+	}
+	for _, v := range index.got {
+		if v != "v" {
+			t.Errorf("got context value %v, want the caller's", v)
+		}
+	}
+}

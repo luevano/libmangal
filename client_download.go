@@ -64,7 +64,7 @@ func (c *Client) DownloadChapterContext(
 	}
 	tmpClient.options.FS = afero.NewMemMapFs()
 
-	dirs, err := c.chapterDirs(chapter, options)
+	dirs, err := c.chapterDirs(ctx, chapter, options)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (c *Client) DownloadChapterContext(
 		return nil, fmt.Errorf("move to %s: %w", options.Directory, err)
 	}
 	if dirs.manga != "" {
-		if err := c.rememberMangaDir(dirs.parent, filepath.Base(dirs.manga), newMangaDirInfo(c.Info(), manga)); err != nil {
+		if err := c.rememberMangaDir(ctx, dirs.parent, filepath.Base(dirs.manga), newMangaDirInfo(c.Info(), manga)); err != nil {
 			return nil, fmt.Errorf("remember the directory of manga %q: %w", manga, err)
 		}
 	}
@@ -138,7 +138,7 @@ func (c *Client) downloadChapterWithMetadata(
 		if mangaDir == "" {
 			mangaDir = dirs.chapter
 		}
-		existing, provider, found, err := c.options.ChapterIndex.FindChapter(mangaDir, chapter, options.Format)
+		existing, provider, found, err := findChapterIn(ctx, c.options.ChapterIndex, mangaDir, chapter, options.Format)
 		if err != nil {
 			return nil, fmt.Errorf("chapter index: %w", err)
 		}

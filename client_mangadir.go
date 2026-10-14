@@ -1,6 +1,7 @@
 package libmangal
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -62,6 +63,44 @@ type ChapterIndex interface {
 	// FindChapter returns the path of the chapter with the same number in the format,
 	// downloaded in mangaDir (by any provider), and the provider id it came from.
 	FindChapter(mangaDir string, chapter mangadata.Chapter, format Format) (path, provider string, found bool, err error)
+}
+
+// MangaDirIndexContext is a MangaDirIndex whose lookups take a context (e.g. a database
+// query that can be cancelled). The client calls these instead when the
+// ClientOptions.MangaDirIndex implements it; the plain methods should call them with
+// context.Background().
+type MangaDirIndexContext interface {
+	MangaDirIndex
+	FindMangaDirContext(ctx context.Context, parent string, provider ProviderInfo, info MangaDirInfo) (name string, found bool, err error)
+	RememberMangaDirContext(ctx context.Context, parent, name string, info MangaDirInfo) error
+}
+
+// ChapterIndexContext is a ChapterIndex whose lookup takes a context, called instead of
+// FindChapter when the ClientOptions.ChapterIndex implements it.
+type ChapterIndexContext interface {
+	ChapterIndex
+	FindChapterContext(ctx context.Context, mangaDir string, chapter mangadata.Chapter, format Format) (path, provider string, found bool, err error)
+}
+
+func findMangaDirIn(ctx context.Context, index MangaDirIndex, parent string, provider ProviderInfo, info MangaDirInfo) (string, bool, error) {
+	if index, ok := index.(MangaDirIndexContext); ok {
+		return index.FindMangaDirContext(ctx, parent, provider, info)
+	}
+	return index.FindMangaDir(parent, provider, info)
+}
+
+func rememberMangaDirIn(ctx context.Context, index MangaDirIndex, parent, name string, info MangaDirInfo) error {
+	if index, ok := index.(MangaDirIndexContext); ok {
+		return index.RememberMangaDirContext(ctx, parent, name, info)
+	}
+	return index.RememberMangaDir(parent, name, info)
+}
+
+func findChapterIn(ctx context.Context, index ChapterIndex, mangaDir string, chapter mangadata.Chapter, format Format) (string, string, bool, error) {
+	if index, ok := index.(ChapterIndexContext); ok {
+		return index.FindChapterContext(ctx, mangaDir, chapter, format)
+	}
+	return index.FindChapter(mangaDir, chapter, format)
 }
 
 // Manga directory matches, from MatchMangaDir.
@@ -184,11 +223,16 @@ type chapterDirs struct {
 // ChapterDir returns the directory the chapter is (or would be) downloaded to with the options,
 // including a reused manga directory (DownloadOptions.ReuseMangaDir).
 func (c *Client) ChapterDir(chapter mangadata.Chapter, options DownloadOptions) (string, error) {
-	dirs, err := c.chapterDirs(chapter, options)
+	return c.ChapterDirContext(context.Background(), chapter, options)
+}
+
+// ChapterDirContext is ChapterDir with a context, passed to the ClientOptions.MangaDirIndex.
+func (c *Client) ChapterDirContext(ctx context.Context, chapter mangadata.Chapter, options DownloadOptions) (string, error) {
+	dirs, err := c.chapterDirs(ctx, chapter, options)
 	return dirs.chapter, err
 }
 
-func (c *Client) chapterDirs(chapter mangadata.Chapter, options DownloadOptions) (chapterDirs, error) {
+func (c *Client) chapterDirs(ctx context.Context, chapter mangadata.Chapter, options DownloadOptions) (chapterDirs, error) {
 	dirs := chapterDirs{parent: options.Directory, meta: options.Directory}
 	if options.CreateProviderDir {
 		name, err := c.providerDirName(options)
@@ -203,7 +247,7 @@ func (c *Client) chapterDirs(chapter mangadata.Chapter, options DownloadOptions)
 		manga := chapter.Volume().Manga()
 		name := c.MangaName(manga)
 		if options.ReuseMangaDir {
-			found, ok, err := c.findMangaDir(dirs.parent, newMangaDirInfo(c.Info(), manga))
+			found, ok, err := c.findMangaDir(ctx, dirs.parent, newMangaDirInfo(c.Info(), manga))
 			if err != nil {
 				return dirs, fmt.Errorf("find the directory of manga %q: %w", manga, err)
 			}
@@ -256,10 +300,10 @@ func (c *Client) providerDirName(options DownloadOptions) (string, error) {
 
 // findMangaDir asks the index (ClientOptions.MangaDirIndex) first, then scans the
 // MangaDirInfo files; what the scan finds is added to the index.
-func (c *Client) findMangaDir(parent string, info MangaDirInfo) (string, bool, error) {
+func (c *Client) findMangaDir(ctx context.Context, parent string, info MangaDirInfo) (string, bool, error) {
 	index := c.options.MangaDirIndex
 	if index != nil {
-		name, ok, err := index.FindMangaDir(parent, c.Info(), info)
+		name, ok, err := findMangaDirIn(ctx, index, parent, c.Info(), info)
 		if err != nil {
 			return "", false, fmt.Errorf("index: %w", err)
 		}
@@ -280,19 +324,19 @@ func (c *Client) findMangaDir(parent string, info MangaDirInfo) (string, bool, e
 	if err != nil {
 		return name, ok, err
 	}
-	if err := index.RememberMangaDir(parent, name, have); err != nil {
+	if err := rememberMangaDirIn(ctx, index, parent, name, have); err != nil {
 		return name, ok, fmt.Errorf("index: %w", err)
 	}
 	return name, ok, nil
 }
 
 // rememberMangaDir records a downloaded manga directory in the index and the scan cache.
-func (c *Client) rememberMangaDir(parent, name string, info MangaDirInfo) error {
+func (c *Client) rememberMangaDir(ctx context.Context, parent, name string, info MangaDirInfo) error {
 	c.mangaDirs.remember(parent, name, info)
 	if c.options.MangaDirIndex == nil {
 		return nil
 	}
-	if err := c.options.MangaDirIndex.RememberMangaDir(parent, name, info); err != nil {
+	if err := rememberMangaDirIn(ctx, c.options.MangaDirIndex, parent, name, info); err != nil {
 		return fmt.Errorf("index: %w", err)
 	}
 	return nil
