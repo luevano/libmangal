@@ -5,7 +5,9 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
+	"github.com/agnivade/levenshtein"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -114,30 +116,9 @@ func normalize(title string) string {
 
 // similarity is 1 minus the edit distance relative to the longer string.
 func similarity(a, b string) float64 {
-	ra, rb := []rune(a), []rune(b)
-	longest := max(len(ra), len(rb))
+	longest := max(utf8.RuneCountInString(a), utf8.RuneCountInString(b))
 	if longest == 0 {
 		return 0
 	}
-	return 1 - float64(levenshtein(ra, rb))/float64(longest)
-}
-
-func levenshtein(a, b []rune) int {
-	prev := make([]int, len(b)+1)
-	cur := make([]int, len(b)+1)
-	for j := range prev {
-		prev[j] = j
-	}
-	for i := 1; i <= len(a); i++ {
-		cur[0] = i
-		for j := 1; j <= len(b); j++ {
-			cost := 1
-			if a[i-1] == b[j-1] {
-				cost = 0
-			}
-			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
-		}
-		prev, cur = cur, prev
-	}
-	return prev[len(b)]
+	return 1 - float64(levenshtein.ComputeDistance(a, b))/float64(longest)
 }

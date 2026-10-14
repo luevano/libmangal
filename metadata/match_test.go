@@ -3,6 +3,8 @@ package metadata
 import (
 	"context"
 	"testing"
+
+	"github.com/agnivade/levenshtein"
 )
 
 type titledMeta struct {
@@ -111,4 +113,32 @@ func TestFindClosest(t *testing.T) {
 			t.Errorf("searched %q", fake.queries)
 		}
 	})
+}
+
+func TestLevenshteinDistances(t *testing.T) {
+	for _, tc := range []struct {
+		a, b string
+		want int
+	}{
+		{"", "", 0},
+		{"", "abc", 3},
+		{"abc", "", 3},
+		{"abc", "abc", 0},
+		{"kitten", "sitting", 3},
+		{"flaw", "lawn", 2},
+		{"onepiece", "onepeice", 2},
+		{"kaguyasamaloveiswar", "kaguyasama", 9},
+		{"ab", "ba", 2},
+		{"進撃の巨人", "進撃の巨人", 0},
+		{"進撃の巨人", "進撃巨人", 1},
+		{"ワンピース", "ワンピス", 1},
+		{"café", "cafe", 1},
+		{"naïve", "naive", 1},
+		{"한국어", "한국", 1},
+		{"😀a", "a😀", 2},
+	} {
+		if got := levenshtein.ComputeDistance(tc.a, tc.b); got != tc.want {
+			t.Errorf("%q, %q: got %d, want %d", tc.a, tc.b, got, tc.want)
+		}
+	}
 }

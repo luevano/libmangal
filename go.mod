@@ -3,6 +3,7 @@ module github.com/luevano/libmangal
 go 1.27.0
 
 require (
+	github.com/agnivade/levenshtein v1.2.1
 	github.com/pdfcpu/pdfcpu v0.16.2
 	github.com/philippgille/gokv v0.7.0
 	github.com/philippgille/gokv/util v0.7.0
