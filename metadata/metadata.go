@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -70,7 +71,8 @@ func (d Date) String() string {
 type ID struct {
 	// Raw id of the manga in the provider.
 	// Must be non-empty unless IDSource is IDSourceProvider.
-	// Must be an integer unless IDSource is IDSourceAnimePlanet.
+	// Must be an integer unless IDSource is IDSourceAnimePlanet (for IDSourceMangaUpdates
+	// its API's series id, see MangaUpdatesID).
 	Raw string `json:"raw"`
 
 	// Source of the metadata.
@@ -94,6 +96,21 @@ func (id ID) Value() int {
 	return i
 }
 
+// MangaUpdatesID is the ID of a MangaUpdates series from the id in its url. The current
+// base36 ones are its API's series id: "pb8uwds" (https://www.mangaupdates.com/series/pb8uwds)
+// is series 55099564912. The old numeric ones (series.html?id=33, up to 6 digits) are only
+// known by the website, not the API: false, like anything else that isn't an id.
+func MangaUpdatesID(urlID string) (ID, bool) {
+	if len(urlID) < 7 && strings.Trim(urlID, "0123456789") == "" {
+		return ID{}, false
+	}
+	n, err := strconv.ParseInt(urlID, 36, 64)
+	if err != nil || n < 1 {
+		return ID{}, false
+	}
+	return ID{Raw: strconv.FormatInt(n, 10), Source: IDSourceMangaUpdates, Code: IDCodeMangaUpdates}, true
+}
+
 func (id ID) validate() error {
 	if id.Code == "" {
 		return errors.New("empty code")
@@ -105,7 +122,8 @@ func (id ID) validate() error {
 	case IDSourceProvider:
 		return nil
 	case IDSourceAnilist, IDSourceMyAnimeList, IDSourceKitsu, IDSourceMangaUpdates:
-		i, err := strconv.Atoi(id.Raw)
+		// 64 bits: MangaUpdates' series ids don't fit 32
+		i, err := strconv.ParseInt(id.Raw, 10, 64)
 		if err != nil {
 			return fmt.Errorf("%s id %q isn't an integer", id.Code, id.Raw)
 		}
