@@ -69,6 +69,22 @@ func CapRetryAfter(wait time.Duration) time.Duration {
 	return min(max(wait, 0), MaxRetryAfter)
 }
 
+// RateLimited is implemented by rate limit errors that say how long to wait
+// (RateLimitError, the metadata providers' and the manga providers' RateLimitError).
+type RateLimited interface {
+	RetryAfterDuration() time.Duration
+}
+
+// RetryAfterOf is whether err (or one it wraps) is a rate limit (a RateLimited, or
+// ErrRateLimited) and how long to wait: zero when the site didn't say.
+func RetryAfterOf(err error) (time.Duration, bool) {
+	var rateLimit RateLimited
+	if errors.As(err, &rateLimit) {
+		return rateLimit.RetryAfterDuration(), true
+	}
+	return 0, errors.Is(err, ErrRateLimited)
+}
+
 // RateLimitError: The site answered 429 too many requests. It matches ErrRateLimited.
 type RateLimitError struct {
 	// RetryAfter: How long the site asked to wait, 0 if it didn't say.

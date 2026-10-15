@@ -8,25 +8,20 @@ import (
 	"time"
 
 	"github.com/luevano/libmangal/logger"
+	"github.com/luevano/libmangal/netutil"
 	"github.com/luevano/libmangal/progress"
 )
 
 // Retries is how many times a rate limited request is retried (after waiting).
 const Retries = 1
 
-// Error is a rate limit error, the providers' RateLimitError.
-type Error interface {
-	error
-	RetryAfterDuration() time.Duration
-}
-
-// Retry calls send, and again after the wait it asks for while it fails with an Error,
-// up to Retries times. The wait is logged and reported as source's progress (site is
+// Retry calls send, and again after the wait it asks for while it fails with a
+// netutil.RateLimited (a bare ErrRateLimited isn't retried), up to Retries times. The wait is logged and reported as source's progress (site is
 // the name in the message, e.g. "AniList").
 func Retry(ctx context.Context, l *logger.Logger, source, site string, send func() error) error {
 	for retry := 0; ; retry++ {
 		err := send()
-		var rateLimit Error
+		var rateLimit netutil.RateLimited
 		if retry == Retries || !errors.As(err, &rateLimit) {
 			return err
 		}
