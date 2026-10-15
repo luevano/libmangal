@@ -20,8 +20,17 @@ var windowsReserved = map[string]bool{
 	"LPT1": true, "LPT2": true, "LPT3": true, "LPT4": true, "LPT5": true, "LPT6": true, "LPT7": true, "LPT8": true, "LPT9": true,
 }
 
-func sanitizePath(path string) string {
-	return SanitizeName(path, invalidPathChars, runtime.GOOS == "windows")
+// Chars a file name can't have, for SanitizeName (InvalidPathCharsOS is this OS's).
+const (
+	InvalidPathCharsUNIX    = `/`
+	InvalidPathCharsDarwin  = `/:`
+	InvalidPathCharsWindows = `<>:"/\|?*`
+)
+
+// SanitizeNameOS is SanitizeName for this OS: InvalidPathCharsOS, and the Windows rules
+// on Windows. It's what the default naming options use.
+func SanitizeNameOS(name string) string {
+	return SanitizeName(name, InvalidPathCharsOS, runtime.GOOS == "windows")
 }
 
 // SanitizeName makes name usable as a single file or directory name: control chars and

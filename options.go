@@ -259,18 +259,18 @@ func DefaultClientOptions() ClientOptions {
 		FS:              afero.NewOsFs(),
 		ConcurrentPages: defaultConcurrentPages,
 		ProviderName: func(provider ProviderInfo) string {
-			return sanitizePath(provider.Name)
+			return SanitizeNameOS(provider.Name)
 		},
 		MangaName: func(_ ProviderInfo, manga mangadata.Manga) string {
-			return sanitizePath(manga.Info().Title)
+			return SanitizeNameOS(manga.Info().Title)
 		},
 		VolumeName: func(_ ProviderInfo, volume mangadata.Volume) string {
-			return sanitizePath(fmt.Sprintf("Vol. %.1f", volume.Info().Number))
+			return SanitizeNameOS(fmt.Sprintf("Vol. %.1f", volume.Info().Number))
 		},
 		ChapterName: func(_ ProviderInfo, chapter mangadata.Chapter) string {
 			info := chapter.Info()
 			number := fmt.Sprintf("%06.1f", info.Number)
-			return sanitizePath(fmt.Sprintf("[%s] %s", number, info.Title))
+			return SanitizeNameOS(fmt.Sprintf("[%s] %s", number, info.Title))
 		},
 	}
 }

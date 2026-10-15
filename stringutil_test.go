@@ -1,6 +1,7 @@
 package libmangal
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -37,5 +38,18 @@ func TestSanitizeNameLength(t *testing.T) {
 	got := SanitizeName(long, "/", false)
 	if len(got) > maxNameBytes || !utf8.ValidString(got) {
 		t.Errorf("got %d bytes, valid utf-8 %t", len(got), utf8.ValidString(got))
+	}
+}
+
+func TestSanitizeNameOS(t *testing.T) {
+	want := map[string]string{"windows": InvalidPathCharsWindows, "darwin": InvalidPathCharsDarwin}[runtime.GOOS]
+	if want == "" {
+		want = InvalidPathCharsUNIX
+	}
+	if InvalidPathCharsOS != want {
+		t.Errorf("%s: InvalidPathCharsOS %q", runtime.GOOS, InvalidPathCharsOS)
+	}
+	if got := SanitizeNameOS("a/b"); got != "a_b" {
+		t.Errorf("got %q", got)
 	}
 }

@@ -1,3 +1,4 @@
 package libmangal
 
-const invalidPathChars = `<>:"/\|?*`
+// InvalidPathCharsOS are the chars a file name can't have on this OS.
+const InvalidPathCharsOS = InvalidPathCharsWindows

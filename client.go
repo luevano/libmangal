@@ -181,7 +181,7 @@ func (c *Client) ChapterName(chapter mangadata.Chapter, format Format) string {
 func (c *Client) safeName(what, name string) string {
 	switch {
 	case name == "", name == ".", name == "..", strings.ContainsAny(name, "/"+string(filepath.Separator)):
-		safe := sanitizePath(name)
+		safe := SanitizeNameOS(name)
 		c.logger.Log("%s name %q isn't a valid file name, using %q", what, name, safe)
 		return safe
 	}
