@@ -1,6 +1,7 @@
 // Package netutil has the HTTP basics shared by libmangal, its metadata providers and
-// the manga providers: default timeout and user agents, Retry-After parsing, and the
-// error sentinels every provider error should match.
+// the manga providers: default timeout and user agents, Retry-After parsing, request
+// logging with redaction (LoggingTransport) and the error sentinels every provider error
+// should match.
 //
 // It's a package of its own (libmangal re-exports the sentinels) so the metadata
 // providers don't depend on libmangal.
