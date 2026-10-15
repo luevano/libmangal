@@ -1,5 +1,7 @@
 package libmangal
 
+import "strings"
+
 //go:generate enumer -type=Format -trimprefix=Format -json -yaml -text
 
 // Format is the format for saving chapters
@@ -43,4 +45,17 @@ func (f Format) Extension() string {
 	default:
 		return ""
 	}
+}
+
+// FormatOf is the format of a chapter file by its name's extension (any case), the
+// inverse of Format.Extension. FormatImages (a directory) has none, so it's never found.
+func FormatOf(name string) (Format, bool) {
+	lower := strings.ToLower(name)
+	// .tar.gz before .tar
+	for _, format := range []Format{FormatTARGZ, FormatCBZ, FormatPDF, FormatZIP, FormatTAR} {
+		if strings.HasSuffix(lower, format.Extension()) {
+			return format, true
+		}
+	}
+	return 0, false
 }

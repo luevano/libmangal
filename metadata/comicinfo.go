@@ -193,6 +193,10 @@ type ComicInfoXML struct {
 	// Notes a free text field, usually used to store information about
 	// the application that created the ComicInfo.xml file.
 	Notes string
+
+	// NoNumber is set by ReadComicInfoXML when the file has no valid Number (Number is
+	// then 0). Marshal ignores it, Number is always written.
+	NoNumber bool
 }
 
 func (c *ComicInfoXML) Marshal(options ComicInfoXMLOptions) ([]byte, error) {
@@ -220,7 +224,7 @@ func (c *ComicInfoXML) wrapper(options ComicInfoXMLOptions) comicInfoXMLWrapper 
 		Letterer:        strings.Join(c.Letterers, ","),
 		Translator:      strings.Join(c.Translators, ","),
 		Tags:            strings.Join(c.Tags, ","),
-		Notes:           strings.TrimLeft(c.Notes+"\n\nDownloaded with libmangal\nhttps://github.com/luevano/libmangal", "\n"),
+		Notes:           strings.TrimLeft(c.Notes+"\n\n"+comicInfoNotesFooter, "\n"),
 		Manga:           mangaReading(c.Country),
 		StoryArc:        c.StoryArc,
 		StoryArcNumber:  c.StoryArcNumber,
@@ -254,6 +258,9 @@ func (c *ComicInfoXML) wrapper(options ComicInfoXMLOptions) comicInfoXMLWrapper 
 
 	return wrapper
 }
+
+// comicInfoNotesFooter ends the Notes Marshal writes.
+const comicInfoNotesFooter = "Downloaded with libmangal\nhttps://github.com/luevano/libmangal"
 
 // mangaReading is the Manga field: manhwa and manhua (webtoons mostly) read left to right.
 func mangaReading(country string) string {
