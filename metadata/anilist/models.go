@@ -14,11 +14,13 @@ type mangasData struct {
 
 type medias []*Manga
 
-// GetAsMetas skips null medias (AniList can send them, e.g. for a deleted media).
-func (m medias) GetAsMetas() []metadata.Metadata {
+// GetAsMetas skips null medias (AniList can send them, e.g. for a deleted media), each
+// gets the tag rank threshold.
+func (m medias) GetAsMetas(tagRankMin int) []metadata.Metadata {
 	mangas := make([]metadata.Metadata, 0, len(m))
 	for _, n := range m {
 		if n != nil {
+			n.TagRankMin = tagRankMin
 			mangas = append(mangas, n)
 		}
 	}

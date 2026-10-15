@@ -421,3 +421,43 @@ func TestMangaFields(t *testing.T) {
 		t.Errorf("extra ids %v", ids)
 	}
 }
+
+func TestTagRankMin(t *testing.T) {
+	const media = `{"id":7,"title":{"english":"Berserk"},"tags":[{"name":"Gore","rank":90},{"name":"Mid","rank":60},{"name":"Low","rank":20}]}`
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		var body apiRequestBody
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if _, ok := body.Variables["id"]; ok {
+			_, _ = w.Write([]byte(`{"data":{"media":` + media + `}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"page":{"media":[` + media + `]}}}`))
+	}
+	for rank, want := range map[int][]string{0: {"Gore", "Mid"}, 1: {"Gore", "Mid", "Low"}, 80: {"Gore"}} {
+		a := newTestAnilist(t, handler)
+		a.options.TagRankMin = rank
+		metas, err := a.Search(context.Background(), "berserk")
+		if err != nil || len(metas) != 1 {
+			t.Fatal(metas, err)
+		}
+		if got := metas[0].Tags(); !slices.Equal(got, want) {
+			t.Errorf("rank %d, search: got %v, want %v", rank, got, want)
+		}
+		meta, _, err := a.SearchByID(context.Background(), 7)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := meta.Tags(); !slices.Equal(got, want) {
+			t.Errorf("rank %d, by id: got %v, want %v", rank, got, want)
+		}
+	}
+	if DefaultOptions().TagRankMin != DefaultTagRankMin || DefaultTagRankMin != 60 {
+		t.Errorf("default %d", DefaultOptions().TagRankMin)
+	}
+	// cached before the option: the default
+	var old Manga
+	_ = json.Unmarshal([]byte(media), &old)
+	if got := old.Tags(); !slices.Equal(got, []string{"Gore", "Mid"}) {
+		t.Errorf("no TagRankMin: %v", got)
+	}
+}

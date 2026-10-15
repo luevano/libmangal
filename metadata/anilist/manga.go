@@ -69,7 +69,14 @@ type Manga struct {
 	External          []struct {
 		URL string `json:"url" jsonschema:"description=URL of the external link."`
 	} `json:"externalLinks" jsonschema:"description=External links related to the manga."`
+
+	// TagRankMin: Options.TagRankMin when it was fetched (kept in the caches), 0 is
+	// DefaultTagRankMin.
+	TagRankMin int `json:"-"`
 }
+
+// DefaultTagRankMin of Options.TagRankMin.
+const DefaultTagRankMin = 60
 
 // String is the short representation of the manga.
 // Must be non-empty.
@@ -152,9 +159,12 @@ func (m *Manga) Banner() string {
 // Tags is the list of tags associated with the manga.
 func (m *Manga) Tags() []string {
 	tags := make([]string, 0)
+	rankMin := m.TagRankMin
+	if rankMin == 0 {
+		rankMin = DefaultTagRankMin
+	}
 	for _, tag := range m.TagList {
-		// TODO: make the rank threshold configurable
-		if tag.Rank < 60 {
+		if tag.Rank < rankMin {
 			continue
 		}
 		tags = append(tags, tag.Name)

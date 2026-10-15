@@ -51,7 +51,7 @@ func (p *Anilist) SearchMany(ctx context.Context, queries []string) ([][]metadat
 			return nil, fmt.Errorf("search %q: %w", chunk, err)
 		}
 		for i := range chunk {
-			results = append(results, data[fmt.Sprintf("q%d", i)].Media.GetAsMetas())
+			results = append(results, data[fmt.Sprintf("q%d", i)].Media.GetAsMetas(p.options.TagRankMin))
 		}
 	}
 	p.logger.Log("searched %d queries on Anilist", len(queries))
@@ -83,6 +83,7 @@ query ($ids: [Int]) {
 		}
 		for _, manga := range data.Page.Media {
 			if manga != nil {
+				manga.TagRankMin = p.options.TagRankMin
 				found[manga.IDProvider] = manga
 			}
 		}

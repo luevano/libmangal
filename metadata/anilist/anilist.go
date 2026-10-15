@@ -98,6 +98,7 @@ func (p *Anilist) SearchByID(ctx context.Context, id int) (metadata.Metadata, bo
 	if manga == nil {
 		return nil, false, nil
 	}
+	manga.TagRankMin = p.options.TagRankMin
 
 	return manga, true, nil
 }
@@ -117,7 +118,7 @@ func (p *Anilist) Search(ctx context.Context, query string) ([]metadata.Metadata
 		return nil, fmt.Errorf("search %q: %w", query, err)
 	}
 
-	mangas := data.Page.Media.GetAsMetas()
+	mangas := data.Page.Media.GetAsMetas(p.options.TagRankMin)
 	p.logger.Log("found %d manga(s) on Anilist", len(mangas))
 	return mangas, nil
 }
