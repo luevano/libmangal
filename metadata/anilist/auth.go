@@ -12,6 +12,8 @@ const (
 	OAuthBaseURL      = "https://anilist.co/api/v2/oauth/"
 	OAuthTokenURL     = OAuthBaseURL + "token"
 	OAuthAuthorizeURL = OAuthBaseURL + "authorize"
+	// OAuthPinURL shows the code to paste, for a redirect url set to it (no callback server)
+	OAuthPinURL = OAuthBaseURL + "pin"
 )
 
 // Authenticated returns true if the Provider is
