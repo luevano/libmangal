@@ -31,7 +31,7 @@ const (
 	DefaultTimeout = time.Minute
 
 	// BrowserUserAgent is a current Firefox, for sites made for browsers.
-	BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:156.0) Gecko/20100101 Firefox/156.0"
+	BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0"
 
 	// LibraryUserAgent is an honest user agent, for APIs (AniList, MyAnimeList, Kitsu).
 	LibraryUserAgent = "libmangal (https://github.com/luevano/libmangal)"
