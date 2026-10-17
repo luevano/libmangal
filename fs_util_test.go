@@ -121,7 +121,8 @@ func TestCopyFileSyncs(t *testing.T) {
 	if err := mergeDirectories(0o755, 0o644, dst, "/out", src, "/d", nil); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(dst.renamed, []string{"/out/ch1.cbz"}) {
+	// mergeDirectories joins with the OS separator
+	if !slices.Equal(dst.renamed, []string{filepath.FromSlash("/out/ch1.cbz")}) {
 		t.Errorf("synced and renamed %q, want /out/ch1.cbz", dst.renamed)
 	}
 }
@@ -157,7 +158,7 @@ func TestMergeDirectoriesReplace(t *testing.T) {
 	src := afero.NewMemMapFs()
 	_ = afero.WriteFile(src, "/d/ch1/0001.png", []byte("new"), 0o644)
 	_ = afero.WriteFile(src, "/d/ch2/0001.jpg", []byte("new"), 0o644)
-	replace := func(path string) bool { return path == "/out/ch1" }
+	replace := func(path string) bool { return path == filepath.FromSlash("/out/ch1") }
 	if err := mergeDirectories(0o755, 0o644, dst, "/out", src, "/d", replace); err != nil {
 		t.Fatal(err)
 	}
