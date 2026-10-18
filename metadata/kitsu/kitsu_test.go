@@ -216,9 +216,6 @@ func TestRateLimitError(t *testing.T) {
 	if want := `search "berserk": kitsu: GET /api/edge/manga: 429 too many requests (retry after 1s)`; err.Error() != want {
 		t.Errorf("got %q, want %q", err, want)
 	}
-	if got := retryAfter(http.Header{"Retry-After": {"0"}}); got != time.Minute {
-		t.Errorf("Retry-After 0: %s, want a minute", got)
-	}
 }
 
 func TestRateLimitRetryCancel(t *testing.T) {

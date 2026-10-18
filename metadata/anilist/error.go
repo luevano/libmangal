@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/luevano/libmangal/metadata"
+	"github.com/luevano/libmangal/metadata/internal/ratelimit"
 	"github.com/luevano/libmangal/netutil"
 )
 
@@ -61,17 +62,15 @@ func (e *RateLimitError) RetryAfterDuration() time.Duration {
 //
 // https://docs.anilist.co/guide/rate-limiting
 //
-// AniList sometimes answers "Retry-After: 0" while still limiting: a hint that isn't in the
-// future counts as none.
+// AniList sometimes answers "Retry-After: 0" while still limiting, so X-RateLimit-Reset is the
+// fallback.
 func retryAfter(header http.Header) time.Duration {
-	if wait := netutil.RetryAfter(header.Get("Retry-After")); wait > 0 {
-		return wait
-	}
+	// no hint, the limit is per minute
+	fallback := time.Minute
 	if reset, err := strconv.ParseInt(header.Get("X-RateLimit-Reset"), 10, 64); err == nil {
 		if wait := netutil.CapRetryAfter(time.Until(time.Unix(reset, 0)).Round(time.Second)); wait > 0 {
-			return wait
+			fallback = wait
 		}
 	}
-	// no hint, the limit is per minute
-	return time.Minute
+	return ratelimit.RetryAfter(header, fallback)
 }

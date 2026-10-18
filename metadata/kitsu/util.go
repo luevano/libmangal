@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/luevano/libmangal/metadata/internal/ratelimit"
 )
@@ -157,7 +158,8 @@ func (p *Kitsu) sendOnce(newReq func() (*http.Request, error), res any) error {
 
 	switch {
 	case resp.StatusCode == http.StatusTooManyRequests:
-		return &RateLimitError{Method: req.Method, Path: req.URL.Path, RetryAfter: retryAfter(resp.Header)}
+		// no documented limits
+		return &RateLimitError{Method: req.Method, Path: req.URL.Path, RetryAfter: ratelimit.RetryAfter(resp.Header, time.Minute)}
 	case resp.StatusCode < 200 || resp.StatusCode > 299:
 		var er errorResponse
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBody))

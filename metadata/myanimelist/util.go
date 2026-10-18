@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/luevano/libmangal/metadata/internal/ratelimit"
 )
@@ -129,7 +130,8 @@ func (p *MyAnimeList) requestOnce(
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusTooManyRequests:
-		return &RateLimitError{Method: method, Path: u.Path, RetryAfter: retryAfter(resp.Header)}
+		// no documented limits
+		return &RateLimitError{Method: method, Path: u.Path, RetryAfter: ratelimit.RetryAfter(resp.Header, time.Minute)}
 	default:
 		var er errorResponse
 		_ = json.NewDecoder(io.LimitReader(resp.Body, maxErrorBody)).Decode(&er)

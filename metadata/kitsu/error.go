@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/luevano/libmangal/metadata"
-	"github.com/luevano/libmangal/netutil"
 )
 
 // HTTPError: The API answered with an error (other than 429, see RateLimitError).
@@ -91,13 +90,4 @@ func (e errorResponse) codeMessage() (code, message string) {
 		message = first.Title
 	}
 	return first.Code, message
-}
-
-func retryAfter(header http.Header) time.Duration {
-	// a hint that isn't in the future counts as none
-	if wait := netutil.RetryAfter(header.Get("Retry-After")); wait > 0 {
-		return wait
-	}
-	// no documented limits
-	return time.Minute
 }

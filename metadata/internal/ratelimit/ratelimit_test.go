@@ -3,6 +3,7 @@ package ratelimit
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -34,5 +35,14 @@ func TestRetry(t *testing.T) {
 	cancel()
 	if err := Retry(ctx, logger.NewLogger(), "x", "X", func() error { return limited{time.Hour} }); !errors.Is(err, context.Canceled) {
 		t.Errorf("got %v, want canceled", err)
+	}
+}
+
+func TestRetryAfter(t *testing.T) {
+	if got := RetryAfter(http.Header{"Retry-After": {"0"}}, time.Minute); got != time.Minute {
+		t.Errorf("Retry-After 0: %s, want the fallback", got)
+	}
+	if got := RetryAfter(http.Header{"Retry-After": {"5"}}, time.Minute); got != 5*time.Second {
+		t.Errorf("Retry-After 5: %s, want 5s", got)
 	}
 }

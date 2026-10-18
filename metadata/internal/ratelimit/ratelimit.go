@@ -5,12 +5,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/netutil"
 	"github.com/luevano/libmangal/progress"
 )
+
+// RetryAfter is the header's Retry-After, or fallback when there's none. A hint that isn't in
+// the future counts as none.
+func RetryAfter(header http.Header, fallback time.Duration) time.Duration {
+	if wait := netutil.RetryAfter(header.Get("Retry-After")); wait > 0 {
+		return wait
+	}
+	return fallback
+}
 
 // Retries is how many times a rate limited request is retried (after waiting).
 const Retries = 1
