@@ -91,7 +91,16 @@ func mergeDirectories(
 			continue
 		}
 		if err := dstFS.Rename(tmpPath, dstPath); err != nil {
-			return errors.Join(err, dstFS.RemoveAll(tmpPath))
+			// another download may have created it meanwhile
+			if exists, _ := afero.DirExists(dstFS, dstPath); !exists {
+				return errors.Join(err, dstFS.RemoveAll(tmpPath))
+			}
+			if err := mergeDirectories(modeDir, modeFile, dstFS, dstPath, dstFS, tmpPath, replace); err != nil {
+				return errors.Join(err, dstFS.RemoveAll(tmpPath))
+			}
+			if err := dstFS.RemoveAll(tmpPath); err != nil {
+				return err
+			}
 		}
 	}
 

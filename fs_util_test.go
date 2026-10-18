@@ -195,3 +195,35 @@ func TestMergeDirectoriesLongNames(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// racingFs creates dir with a file, like another download, just before a rename to it.
+type racingFs struct {
+	afero.Fs
+	dir string
+}
+
+func (fs racingFs) Rename(oldname, newname string) error {
+	if newname == fs.dir {
+		_ = fs.Fs.Mkdir(fs.dir, 0o755)
+		_ = afero.WriteFile(fs.Fs, filepath.Join(fs.dir, "ch1.cbz"), []byte("other"), 0o644)
+	}
+	return fs.Fs.Rename(oldname, newname)
+}
+
+func TestMergeDirectoriesConcurrentCreate(t *testing.T) {
+	src := afero.NewMemMapFs()
+	_ = afero.WriteFile(src, "/d/manga/ch2.cbz", []byte("new"), 0o644)
+	dir := t.TempDir()
+	dst := racingFs{Fs: afero.NewBasePathFs(afero.NewOsFs(), dir), dir: filepath.FromSlash("/manga")}
+	if err := mergeDirectories(0o755, 0o644, dst, "/", src, "/d", nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"ch1.cbz", "ch2.cbz"} {
+		if _, err := os.Stat(filepath.Join(dir, "manga", name)); err != nil {
+			t.Error(err)
+		}
+	}
+	if got := listDirs(t, dir); !slices.Equal(got, []string{"manga"}) {
+		t.Errorf("left %q", got)
+	}
+}
