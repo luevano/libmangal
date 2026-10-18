@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -322,18 +324,40 @@ func (c *Client) downloadChapter(
 		return metadata.DownloadStatusSkip, len(downloadedPages), nil
 	}
 
+	file, err := c.options.FS.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, c.options.ModeFile)
+	if err != nil {
+		return "", 0, err
+	}
+	ciXMLStatus, err := c.writeChapter(ctx, chapter, downloadedPages, file, options)
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return "", 0, errors.Join(err, c.options.FS.Remove(path))
+	}
+	return ciXMLStatus, len(downloadedPages), nil
+}
+
+// writeChapter writes pages to out in options.Format (not FormatImages).
+func (c *Client) writeChapter(
+	ctx context.Context,
+	chapter mangadata.Chapter,
+	downloadedPages []mangadata.PageWithImage,
+	out io.Writer,
+	options DownloadOptions,
+) (metadata.DownloadStatus, error) {
 	// Only CBZ writes the ComicInfo.xml, so by default it's skipped
 	ciXMLStatus := metadata.DownloadStatusSkip
-	var buf bytes.Buffer
+	var err error
 	switch options.Format {
 	case FormatPDF:
-		err = c.savePDF(ctx, downloadedPages, &buf)
+		err = c.savePDF(ctx, downloadedPages, out)
 	case FormatTAR:
-		err = c.saveTAR(downloadedPages, &buf)
+		err = c.saveTAR(downloadedPages, out)
 	case FormatTARGZ:
-		err = c.saveTARGZ(downloadedPages, &buf)
+		err = c.saveTARGZ(downloadedPages, out)
 	case FormatZIP:
-		err = c.saveZIP(downloadedPages, &buf)
+		err = c.saveZIP(downloadedPages, out)
 	case FormatCBZ:
 		var comicInfoXML *metadata.ComicInfoXML
 		ciXMLFailed := false
@@ -353,14 +377,14 @@ func (c *Client) downloadChapter(
 			case err == nil:
 				comicInfoXML = &ciXML
 			case options.Strict:
-				return "", 0, fmt.Errorf("%s: %w", metadata.FilenameComicInfoXML, err)
+				return "", fmt.Errorf("%s: %w", metadata.FilenameComicInfoXML, err)
 			default:
 				c.logger.Log("getting %s: %s", metadata.FilenameComicInfoXML, err)
 				ciXMLFailed = true
 			}
 		}
 
-		ciXMLStatus, err = c.saveCBZ(downloadedPages, &buf, comicInfoXML, options.ComicInfoXMLOptions)
+		ciXMLStatus, err = c.saveCBZ(downloadedPages, out, comicInfoXML, options.ComicInfoXMLOptions)
 		if ciXMLFailed {
 			ciXMLStatus = metadata.DownloadStatusFailed
 		}
@@ -368,13 +392,9 @@ func (c *Client) downloadChapter(
 		err = fmt.Errorf("unknown format %d", options.Format)
 	}
 	if err != nil {
-		return "", 0, fmt.Errorf("write %s: %w", options.Format, err)
+		return "", fmt.Errorf("write %s: %w", options.Format, err)
 	}
-
-	if err := afero.WriteFile(c.options.FS, path, buf.Bytes(), c.options.ModeFile); err != nil {
-		return "", 0, err
-	}
-	return ciXMLStatus, len(downloadedPages), nil
+	return ciXMLStatus, nil
 }
 
 // DownloadPagesInBatch downloads multiple pages in batch
