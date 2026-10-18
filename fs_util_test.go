@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -175,5 +176,22 @@ func TestMergeDirectoriesReplace(t *testing.T) {
 		if !slices.Equal(got, want) {
 			t.Errorf("%s: %q, want %q", dir, got, want)
 		}
+	}
+}
+
+func TestMergeDirectoriesLongNames(t *testing.T) {
+	name := SanitizeNameOS(strings.Repeat("あ", 90))
+	if len(name) != maxNameBytes {
+		t.Fatalf("name is %d bytes, want %d", len(name), maxNameBytes)
+	}
+	src := afero.NewMemMapFs()
+	_ = afero.WriteFile(src, filepath.Join("/d", name, name+".cbz"), []byte("x"), 0o644)
+	dir := t.TempDir()
+	dst := afero.NewBasePathFs(afero.NewOsFs(), dir)
+	if err := mergeDirectories(0o755, 0o644, dst, "/", src, "/d", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, name, name+".cbz")); err != nil {
+		t.Error(err)
 	}
 }

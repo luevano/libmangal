@@ -15,12 +15,13 @@ import (
 // partSuffix marks files and dirs still being written.
 const partSuffix = ".part"
 
-// partPath is a unique temporary path next to path, ending in partSuffix, so two
-// downloads into the same directory don't write to the same temporary file.
+// partPath is a unique temporary path in path's directory, ending in partSuffix, so two
+// downloads into the same directory don't write to the same temporary file. It's short
+// and hidden so it fits the name length limit whatever path's name is.
 func partPath(path string) string {
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
-	return path + "." + hex.EncodeToString(b) + partSuffix
+	return filepath.Join(filepath.Dir(path), "."+hex.EncodeToString(b)+partSuffix)
 }
 
 // mergeDirectories merges two directories recursively from different filesystems.

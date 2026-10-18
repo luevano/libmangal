@@ -8,7 +8,7 @@ import (
 )
 
 // maxNameBytes keeps names under the usual 255 bytes limit with room for
-// the extension (".tar.gz") and the temporary suffix (".part").
+// the extension (".tar.gz"); temporary files get their own short names (partPath).
 const maxNameBytes = 240
 
 var underscores = regexp.MustCompile(`_+`)
