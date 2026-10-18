@@ -189,13 +189,27 @@ func (idx *mangaDirIndex) find(fsys afero.Fs, parent string, provider ProviderIn
 	if err != nil {
 		return "", false, err
 	}
-	best, name := MangaDirNoMatch, ""
-	for _, d := range dirs {
-		if match := MatchMangaDir(provider, info, d.info); match > best {
-			best, name = match, d.name
+	for {
+		best, name := MangaDirNoMatch, ""
+		for _, d := range dirs {
+			if match := MatchMangaDir(provider, info, d.info); match > best {
+				best, name = match, d.name
+			}
 		}
+		if best == MangaDirNoMatch {
+			return "", false, nil
+		}
+		// the directory may have been moved or deleted since the scan
+		exists, err := afero.DirExists(fsys, filepath.Join(parent, name))
+		if err != nil {
+			return "", false, err
+		}
+		if exists {
+			return name, true, nil
+		}
+		dirs = slices.DeleteFunc(dirs, func(d indexedDir) bool { return d.name == name })
+		idx.dirs[parent] = dirs
 	}
-	return name, best != MangaDirNoMatch, nil
 }
 
 func (idx *mangaDirIndex) remember(parent, name string, info MangaDirInfo) {

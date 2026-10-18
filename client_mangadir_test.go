@@ -89,6 +89,35 @@ func TestReuseMangaDir(t *testing.T) {
 	}
 }
 
+func TestReuseMangaDirDeleted(t *testing.T) {
+	fake := ProviderInfo{ID: "fake", Name: "Fake", Version: "0.1.0"}
+	options := DefaultDownloadOptions()
+	options.Directory = t.TempDir()
+	options.SearchMetadata = false
+
+	clientOptions := DefaultClientOptions()
+	clientOptions.MangaName = func(ProviderInfo, mangadata.Manga) string { return "Title" }
+	clientOptions.MangaDirIndex = &memIndex{dirs: map[string]MangaDirInfo{}}
+	c, err := NewClientContext(context.Background(), fakeLoader{&infoProvider{fakeProvider: &fakeProvider{}, info: fake}}, clientOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.DownloadChapterContext(context.Background(), newFakeChapter(validMeta(), 1), options); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(options.Directory, "Title")); err != nil {
+		t.Fatal(err)
+	}
+	// the same client: its scan cache still has the deleted directory
+	down, err := c.DownloadChapterContext(context.Background(), newFakeChapter(validMeta(), 1), options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(options.Directory, "Title"); down.Directory != want {
+		t.Errorf("downloaded to %q, want %q", down.Directory, want)
+	}
+}
+
 func TestReuseMangaDirByMetadataID(t *testing.T) {
 	options := DefaultDownloadOptions()
 	options.Directory = t.TempDir()
