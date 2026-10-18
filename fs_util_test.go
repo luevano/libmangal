@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/spf13/afero"
 )
@@ -225,5 +226,34 @@ func TestMergeDirectoriesConcurrentCreate(t *testing.T) {
 	}
 	if got := listDirs(t, dir); !slices.Equal(got, []string{"manga"}) {
 		t.Errorf("left %q", got)
+	}
+}
+
+func TestMergeDirectoriesRemovesStaleParts(t *testing.T) {
+	dst := afero.NewMemMapFs()
+	old := time.Now().Add(-2 * staleAfter)
+	stale := []string{"/out/manga/.0123abcd.part", "/out/manga/ch1.cbz.89abcdef.part", "/out/.deadbeef.part"}
+	keep := []string{"/out/manga/.fedcba98.part", "/out/manga/Title.part", "/out/manga/ch3.cbz"}
+	for _, p := range append(stale, keep...) {
+		_ = afero.WriteFile(dst, p, nil, 0o644)
+	}
+	for _, p := range append(stale, keep[1:]...) {
+		_ = dst.Chtimes(p, old, old)
+	}
+
+	src := afero.NewMemMapFs()
+	_ = afero.WriteFile(src, "/d/manga/ch2.cbz", []byte("new"), 0o644)
+	if err := mergeDirectories(0o755, 0o644, dst, "/out", src, "/d", nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range stale {
+		if ok, _ := afero.Exists(dst, p); ok {
+			t.Errorf("%s not removed", p)
+		}
+	}
+	for _, p := range keep {
+		if ok, _ := afero.Exists(dst, p); !ok {
+			t.Errorf("%s removed", p)
+		}
 	}
 }

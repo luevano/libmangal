@@ -8,6 +8,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"time"
 
 	"github.com/spf13/afero"
 )
@@ -22,6 +24,28 @@ func partPath(path string) string {
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
 	return filepath.Join(filepath.Dir(path), "."+hex.EncodeToString(b)+partSuffix)
+}
+
+// stalePart matches the temporary names of partPath, and the "<name>.<hex>.part" ones
+// it made before.
+var stalePart = regexp.MustCompile(`\.[0-9a-f]{8}` + regexp.QuoteMeta(partSuffix) + `$`)
+
+// staleAfter is how old a temporary file or dir must be to be removed, so one that
+// another download is writing is left alone.
+const staleAfter = time.Hour
+
+// removeStaleParts removes the temporary files and dirs in dir that a killed process
+// left behind. It's best effort: a failure doesn't stop the download.
+func removeStaleParts(fsys afero.Fs, dir string) {
+	entries, err := afero.ReadDir(fsys, dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if stalePart.MatchString(e.Name()) && time.Since(e.ModTime()) > staleAfter {
+			_ = fsys.RemoveAll(filepath.Join(dir, e.Name()))
+		}
+	}
 }
 
 // mergeDirectories merges two directories recursively from different filesystems.
@@ -40,6 +64,7 @@ func mergeDirectories(
 	if err := dstFS.MkdirAll(dstDir, modeDir); err != nil {
 		return err
 	}
+	removeStaleParts(dstFS, dstDir)
 
 	srcFiles, err := afero.ReadDir(srcFS, srcDir)
 	if err != nil {
