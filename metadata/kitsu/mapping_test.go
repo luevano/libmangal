@@ -24,7 +24,7 @@ func mappingsHandler(t *testing.T, ids map[string][]string, limit int, requests 
 			t.Errorf("unexpected request %s", r.URL)
 		}
 		var data, included []string
-		for _, ext := range strings.Split(q.Get("filter[externalId]"), ",") {
+		for ext := range strings.SplitSeq(q.Get("filter[externalId]"), ",") {
 			for _, kt := range ids[ext] {
 				data = append(data, fmt.Sprintf(`{"id": "m%s-%s", "type": "mappings",
 					"attributes": {"externalSite": "anilist/manga", "externalId": %q},

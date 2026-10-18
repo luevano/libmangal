@@ -287,7 +287,7 @@ func (m *ctxIndex) FindChapterContext(ctx context.Context, mangaDir string, chap
 }
 
 func TestIndexContext(t *testing.T) {
-	index := &ctxIndex{memIndex: memIndex{dirs: map[string]MangaDirInfo{}}}
+	index := &ctxIndex{dirs: map[string]MangaDirInfo{}}
 	options := DefaultClientOptions()
 	options.MangaDirIndex = index
 	options.ChapterIndex = index

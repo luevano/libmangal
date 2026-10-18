@@ -38,7 +38,7 @@ func (p *fakeBatcher) SearchByIDs(ctx context.Context, ids []int) (map[int]Metad
 func TestFindClosestManyBatches(t *testing.T) {
 	berserk := &fakeMeta{id: 1, title: "Berserk"}
 	vagabond := &fakeMeta{id: 2, title: "Vagabond"}
-	kaiju := &titledMeta{fakeMeta: fakeMeta{id: 3, title: "Kaiju No. 8"}}
+	kaiju := &titledMeta{id: 3, title: "Kaiju No. 8"}
 	bound := &fakeMeta{id: 4, title: "Bound One"}
 	fake := &fakeBatcher{fakeProvider: &fakeProvider{
 		byID: map[int]Metadata{4: bound},

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -347,7 +346,7 @@ func (m *Manga) AlternateTitles() []string {
 			others = append(others, l)
 		}
 	}
-	sort.Strings(others)
+	slices.Sort(others)
 	for _, l := range others {
 		ordered = append(ordered, m.TitleMap[l])
 	}
