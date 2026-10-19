@@ -34,6 +34,10 @@ type ProviderInfo struct {
 	// Website of the provider. May be empty.
 	Website string `json:"website"`
 
+	// Icon is the url of the site's icon. May be empty, then the website's
+	// /favicon.ico is used.
+	Icon string `json:"icon,omitempty"`
+
 	// Mirrors are other websites serving the same content, tried when Website is down.
 	// Absolute http(s) urls. May be empty.
 	Mirrors []string `json:"mirrors,omitempty"`
@@ -101,7 +105,7 @@ func FindLoader(loaders []ProviderLoader, id string) (ProviderLoader, *ProviderA
 
 // Validate checks if the ProviderInfo is valid.
 // This means that ID and Name are non-empty, Version is a valid semver,
-// every Mirror is an absolute http(s) url and every History entry has an ID.
+// Icon and every Mirror are absolute http(s) urls and every History entry has an ID.
 func (p ProviderInfo) Validate() error {
 	if p.ID == "" {
 		return errors.New("empty id")
@@ -118,9 +122,12 @@ func (p ProviderInfo) Validate() error {
 		return fmt.Errorf("invalid semver %q", p.Version)
 	}
 
+	if p.Icon != "" && !isHTTPURL(p.Icon) {
+		return fmt.Errorf("invalid icon %q", p.Icon)
+	}
+
 	for _, mirror := range p.Mirrors {
-		u, err := url.Parse(mirror)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		if !isHTTPURL(mirror) {
 			return fmt.Errorf("invalid mirror %q", mirror)
 		}
 	}
@@ -132,6 +139,11 @@ func (p ProviderInfo) Validate() error {
 	}
 
 	return nil
+}
+
+func isHTTPURL(raw string) bool {
+	u, err := url.Parse(raw)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
 // ProviderLoader gives information about provider without loading it first.

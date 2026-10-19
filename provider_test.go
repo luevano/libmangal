@@ -75,3 +75,19 @@ func TestProviderInfoValidateMirrors(t *testing.T) {
 		}
 	}
 }
+
+func TestProviderInfoValidateIcon(t *testing.T) {
+	info := ProviderInfo{ID: "x", Name: "X", Version: "0.1.0"}
+	for _, good := range []string{"", "https://site.example/icon.png"} {
+		info.Icon = good
+		if err := info.Validate(); err != nil {
+			t.Errorf("icon %q: %v", good, err)
+		}
+	}
+	for _, bad := range []string{"icon.png", "ftp://site.example/icon.png", "https://"} {
+		info.Icon = bad
+		if err := info.Validate(); err == nil {
+			t.Errorf("icon %q: no error", bad)
+		}
+	}
+}
