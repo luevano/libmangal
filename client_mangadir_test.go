@@ -226,11 +226,11 @@ func TestMangaDirIndex(t *testing.T) {
 	}
 
 	// a stale entry falls back to the markers, which seed the index
-	index.dirs = map[string]MangaDirInfo{filepath.Join(options.Directory, "Gone"): newMangaDirInfo(fake, chapter.volume.manga)}
+	index.dirs = map[string]MangaDirInfo{filepath.Join(options.Directory, "Gone"): NewMangaDirInfo(fake, chapter.volume.manga)}
 	if _, err := newClient("Marked").DownloadChapterContext(context.Background(), chapter, options); err != nil {
 		t.Fatal(err)
 	}
-	index.dirs = map[string]MangaDirInfo{filepath.Join(options.Directory, "Gone"): newMangaDirInfo(fake, chapter.volume.manga)}
+	index.dirs = map[string]MangaDirInfo{filepath.Join(options.Directory, "Gone"): NewMangaDirInfo(fake, chapter.volume.manga)}
 	if dir, _ := newClient("Other").ChapterDir(chapter, options); dir != filepath.Join(options.Directory, "Marked") {
 		t.Errorf("got %q, want the marked directory", dir)
 	}

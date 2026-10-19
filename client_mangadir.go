@@ -33,7 +33,8 @@ type MangaDirInfo struct {
 	MetadataIDs []metadata.ID `json:"metadata_ids,omitempty"`
 }
 
-func newMangaDirInfo(provider ProviderInfo, manga mangadata.Manga) MangaDirInfo {
+// NewMangaDirInfo is the MangaDirInfo a download of the provider's manga writes.
+func NewMangaDirInfo(provider ProviderInfo, manga mangadata.Manga) MangaDirInfo {
 	info := MangaDirInfo{Provider: provider.ID, Manga: manga.Info()}
 	meta := manga.Metadata()
 	if metadata.Validate(meta) != nil {
@@ -261,7 +262,7 @@ func (c *Client) chapterDirs(ctx context.Context, chapter mangadata.Chapter, opt
 		manga := chapter.Volume().Manga()
 		name := c.MangaName(manga)
 		if options.ReuseMangaDir {
-			found, ok, err := c.findMangaDir(ctx, dirs.parent, newMangaDirInfo(c.Info(), manga))
+			found, ok, err := c.findMangaDir(ctx, dirs.parent, NewMangaDirInfo(c.Info(), manga))
 			if err != nil {
 				return dirs, fmt.Errorf("find the directory of manga %q: %w", manga, err)
 			}

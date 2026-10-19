@@ -92,7 +92,7 @@ func (c *Client) DownloadChapterContext(
 		return nil, fmt.Errorf("move to %s: %w", options.Directory, err)
 	}
 	if dirs.manga != "" {
-		if err := c.rememberMangaDir(ctx, dirs.parent, filepath.Base(dirs.manga), newMangaDirInfo(c.Info(), manga)); err != nil {
+		if err := c.rememberMangaDir(ctx, dirs.parent, filepath.Base(dirs.manga), NewMangaDirInfo(c.Info(), manga)); err != nil {
 			return nil, fmt.Errorf("remember the directory of manga %q: %w", manga, err)
 		}
 	}
@@ -120,7 +120,7 @@ func (c *Client) downloadChapterWithMetadata(
 
 	manga := chapter.Volume().Manga()
 	if dirs.manga != "" {
-		if err := WriteMangaDirInfo(c.options.FS, dirs.manga, newMangaDirInfo(c.Info(), manga), c.options.ModeFile); err != nil {
+		if err := WriteMangaDirInfo(c.options.FS, dirs.manga, NewMangaDirInfo(c.Info(), manga), c.options.ModeFile); err != nil {
 			return nil, err
 		}
 	}

@@ -147,8 +147,16 @@ func (c *Client) ChapterPages(chapter mangadata.Chapter) ([]mangadata.Page, erro
 	return c.ChapterPagesContext(context.Background(), chapter)
 }
 
-// ChapterPagesContext is ChapterPages with a context.
+// ChapterPagesContext is ChapterPages with a context. A mangadata.WrappedChapter's pages
+// are its provider's chapter's.
 func (c *Client) ChapterPagesContext(ctx context.Context, chapter mangadata.Chapter) ([]mangadata.Page, error) {
+	for {
+		w, ok := chapter.(mangadata.WrappedChapter)
+		if !ok {
+			break
+		}
+		chapter = w.Unwrap()
+	}
 	return c.provider.ChapterPages(ctx, chapter)
 }
 

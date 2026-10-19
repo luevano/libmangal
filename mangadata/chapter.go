@@ -49,6 +49,17 @@ type Chapter interface {
 	Volume() Volume
 }
 
+// WrappedChapter is a Chapter standing in for another one of the provider's (e.g. with
+// another title, volume or manga): the client asks the provider for the pages of the
+// chapter Unwrap returns, everything else (names, metadata, ComicInfo.xml) is the
+// wrapper's.
+type WrappedChapter interface {
+	Chapter
+
+	// Unwrap is the provider's own chapter.
+	Unwrap() Chapter
+}
+
 // ChapterWithComicInfoXML is a Chapter with an already associated ComicInfoXML.
 //
 // The associated ComicInfoXML will be used instead of the one generated from the metadata.

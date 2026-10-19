@@ -354,3 +354,28 @@ func TestDownloadImagesOverwriteDropsOldPages(t *testing.T) {
 		}
 	}
 }
+
+type wrappedChapter struct {
+	*fakeChapter
+	title string
+}
+
+func (w wrappedChapter) Info() mangadata.ChapterInfo {
+	info := w.fakeChapter.Info()
+	info.Title = w.title
+	return info
+}
+
+func (w wrappedChapter) Unwrap() mangadata.Chapter { return w.fakeChapter }
+
+// the provider gets its own chapter, the file is named after the wrapper
+func TestDownloadWrappedChapter(t *testing.T) {
+	c, options := newDownloadTest(t)
+	down, err := c.DownloadChapterContext(context.Background(), wrappedChapter{newFakeChapter(validMeta(), 2), "Another Title"}, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if down.Pages != 2 || !strings.Contains(down.Filename, "Another Title") {
+		t.Errorf("got %+v", down)
+	}
+}
