@@ -20,26 +20,32 @@ type FilterOptions struct {
 	// ShowUnavailableChapters also shows chapters that can't be downloaded,
 	// such as ones hosted on external sites (MangaDex chapters on MangaPlus).
 	ShowUnavailableChapters bool
+
+	// ShowRetiredChapters also lists chapters the source took down but still
+	// knows about (MangaDex's unavailable chapters), shown as unavailable.
+	ShowRetiredChapters bool
 }
 
 // DefaultFilterOptions constructs FilterOptions that filter nothing:
-// NSFW included, any language, duplicate and unavailable chapters kept.
+// NSFW included, any language, duplicate, unavailable and retired chapters kept.
 func DefaultFilterOptions() FilterOptions {
 	return FilterOptions{
 		NSFW:                    true,
 		Language:                "",
 		AvoidDuplicateChapters:  false,
 		ShowUnavailableChapters: true,
+		ShowRetiredChapters:     true,
 	}
 }
 
 // String is a stable representation of the filters, e.g. for cache keys.
 func (f *FilterOptions) String() string {
 	return fmt.Sprintf(
-		"filters[%t&%s&%t&%t]",
+		"filters[%t&%s&%t&%t&%t]",
 		f.NSFW,
 		f.Language,
 		f.AvoidDuplicateChapters,
 		f.ShowUnavailableChapters,
+		f.ShowRetiredChapters,
 	)
 }
