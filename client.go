@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/luevano/libmangal/logger"
@@ -94,14 +95,19 @@ func (c *Client) SearchMangas(query string) ([]mangadata.Manga, error) {
 
 // SearchMangasContext is SearchMangas with a context.
 func (c *Client) SearchMangasContext(ctx context.Context, query string) ([]mangadata.Manga, error) {
-	return c.provider.SearchMangas(ctx, query)
+	mangas, err := c.provider.SearchMangas(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	return validItems(c, "manga", mangas, mangaProblem)
 }
 
 // MangaByID gets the manga with the given id (mangadata.MangaInfo.ID), the same manga
 // a search would return.
 //
 // found is false, with a nil error, when there is no such manga. If the provider doesn't
-// implement MangaByIDProvider the error matches ErrMangaByIDUnsupported.
+// implement MangaByIDProvider the error matches ErrMangaByIDUnsupported, if it found a
+// manga without an id or title it matches ErrInvalidResult.
 func (c *Client) MangaByID(id string) (mangadata.Manga, bool, error) {
 	return c.MangaByIDContext(context.Background(), id)
 }
@@ -116,8 +122,11 @@ func (c *Client) MangaByIDContext(ctx context.Context, id string) (mangadata.Man
 	if err != nil {
 		return nil, false, fmt.Errorf("get manga %q: %w", id, err)
 	}
-	if !found || manga == nil {
+	if !found {
 		return nil, false, nil
+	}
+	if problem := mangaProblem(manga); problem != "" {
+		return nil, false, fmt.Errorf("get manga %q: provider %q: %s: %w", id, c.provider.Info().ID, problem, ErrInvalidResult)
 	}
 	return manga, true, nil
 }
@@ -129,7 +138,11 @@ func (c *Client) MangaVolumes(manga mangadata.Manga) ([]mangadata.Volume, error)
 
 // MangaVolumesContext is MangaVolumes with a context.
 func (c *Client) MangaVolumesContext(ctx context.Context, manga mangadata.Manga) ([]mangadata.Volume, error) {
-	return c.provider.MangaVolumes(ctx, manga)
+	volumes, err := c.provider.MangaVolumes(ctx, manga)
+	if err != nil {
+		return nil, err
+	}
+	return validItems(c, "volume", volumes, noProblem)
 }
 
 // VolumeChapters gets chapters of the given volume.
@@ -139,7 +152,11 @@ func (c *Client) VolumeChapters(volume mangadata.Volume) ([]mangadata.Chapter, e
 
 // VolumeChaptersContext is VolumeChapters with a context.
 func (c *Client) VolumeChaptersContext(ctx context.Context, volume mangadata.Volume) ([]mangadata.Chapter, error) {
-	return c.provider.VolumeChapters(ctx, volume)
+	chapters, err := c.provider.VolumeChapters(ctx, volume)
+	if err != nil {
+		return nil, err
+	}
+	return validItems(c, "chapter", chapters, noProblem)
 }
 
 // ChapterPages gets pages of the given chapter.
@@ -157,7 +174,15 @@ func (c *Client) ChapterPagesContext(ctx context.Context, chapter mangadata.Chap
 		}
 		chapter = w.Unwrap()
 	}
-	return c.provider.ChapterPages(ctx, chapter)
+	pages, err := c.provider.ChapterPages(ctx, chapter)
+	if err != nil {
+		return nil, err
+	}
+	// a page left out would be a hole in the chapter
+	if i := slices.IndexFunc(pages, func(p mangadata.Page) bool { return isNil(p) }); i >= 0 {
+		return nil, fmt.Errorf("pages of %q: provider %q: page %d is nil: %w", chapter, c.provider.Info().ID, i+1, ErrInvalidResult)
+	}
+	return pages, nil
 }
 
 // ProviderName determines the provider directory name.

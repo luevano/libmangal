@@ -15,6 +15,11 @@ var (
 	// ErrMangaByIDUnsupported: The provider doesn't implement MangaByIDProvider.
 	ErrMangaByIDUnsupported = errors.New("manga by id unsupported")
 
+	// ErrInvalidResult: The provider returned something unusable as found (e.g. a manga
+	// without an id): the site's reply wasn't what it expected. A failure to retry, not a
+	// missing item.
+	ErrInvalidResult = errors.New("invalid result")
+
 	// ErrNotFound: The site doesn't have it. Provider errors should match it,
 	// metadata.ErrNotFound is the same value (see netutil).
 	ErrNotFound = netutil.ErrNotFound
