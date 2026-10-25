@@ -48,6 +48,13 @@ type ProviderInfo struct {
 	// every entry here is deprecated. An entry may keep the current ID when only the
 	// name or website changed.
 	History []ProviderAlias `json:"history,omitempty"`
+
+	// Settings the user may change for this provider, shown and stored by the app, which
+	// hands the values back through the loader's SettingsFunc. May be empty.
+	Settings []ProviderSetting `json:"settings,omitempty"`
+
+	// Traits tell the app how to treat the provider.
+	Traits ProviderTraits `json:"traits,omitzero"`
 }
 
 // ProviderAlias is a previous identity of a provider.
@@ -105,7 +112,8 @@ func FindLoader(loaders []ProviderLoader, id string) (ProviderLoader, *ProviderA
 
 // Validate checks if the ProviderInfo is valid.
 // This means that ID and Name are non-empty, Version is a valid semver,
-// Icon and every Mirror are absolute http(s) urls and every History entry has an ID.
+// Icon and every Mirror are absolute http(s) urls, every History entry has an ID and every
+// Setting is valid (see ProviderSetting.Validate) with a unique Key.
 func (p ProviderInfo) Validate() error {
 	if p.ID == "" {
 		return errors.New("empty id")
@@ -136,6 +144,17 @@ func (p ProviderInfo) Validate() error {
 		if alias.ID == "" {
 			return fmt.Errorf("history entry %d: empty id", i)
 		}
+	}
+
+	keys := make(map[string]bool, len(p.Settings))
+	for _, setting := range p.Settings {
+		if err := setting.Validate(); err != nil {
+			return err
+		}
+		if keys[setting.Key] {
+			return fmt.Errorf("duplicate setting %q", setting.Key)
+		}
+		keys[setting.Key] = true
 	}
 
 	return nil
