@@ -25,6 +25,7 @@ Designed to be the backend for applications such as CLI, TUI, web apps, gRPC ser
   - TAR.GZ - gzipped TAR archive.
   - ZIP - ZIP archive.
   - Images - a plain directory of images.
+- Optional WebP conversion of the page images.
 - Monolith - no runtime dependencies.
 - Generates metadata files:
   - `ComicInfo.xml` - The ComicInfo.xml file originates from the ComicRack application, which is not developed anymore. The ComicInfo.xml however is used by a variety of applications.

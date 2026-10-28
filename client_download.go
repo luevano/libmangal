@@ -310,6 +310,12 @@ func (c *Client) downloadChapter(
 		}
 	}
 
+	if options.WebP && options.Format != FormatPDF {
+		if err := c.convertToWebP(ctx, downloadedPages, options.WebPQuality); err != nil {
+			return "", 0, err
+		}
+	}
+
 	if options.Format == FormatImages {
 		if err := c.options.FS.MkdirAll(path, c.options.ModeDir); err != nil {
 			return "", 0, err
