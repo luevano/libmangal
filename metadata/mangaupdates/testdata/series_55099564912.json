@@ -1,0 +1,131 @@
+{
+ "series_id": 55099564912,
+ "title": "One Piece",
+ "url": "https://www.mangaupdates.com/series/pb8uwds/one-piece",
+ "associated": [
+  {
+   "title": "Đảo Hải Tặc"
+  },
+  {
+   "title": "Ван Пис"
+  },
+  {
+   "title": "Уан Пийс"
+  }
+ ],
+ "description": "As a child, Monkey D. Luffy was inspired to become a pirate by listening to the tales of \"Red-Haired\" Shanks. But his life changed when Luffy accidentally ate the Gum-Gum Devil Fruit and gained the power to stretch like rubber at the cost of never being able to swim again. Years later, still vowing to become the king of the pirates, Luffy sets out on his adventure one guy alone in a rowboat, in search of the legendary \"One Piece,\" said to be the greatest treasure in the world.",
+ "image": {
+  "url": {
+   "original": "https://cdn.mangaupdates.com/image/i531056.jpg",
+   "thumb": "https://cdn.mangaupdates.com/image/thumb/i531056.jpg"
+  },
+  "height": 400,
+  "width": 255
+ },
+ "type": "Manga",
+ "year": "1997",
+ "bayesian_rating": 8.89,
+ "rating_votes": 5366,
+ "genres": [
+  {
+   "genre": "Action"
+  },
+  {
+   "genre": "Adventure"
+  },
+  {
+   "genre": "Comedy"
+  },
+  {
+   "genre": "Drama"
+  },
+  {
+   "genre": "Fantasy"
+  },
+  {
+   "genre": "Shounen"
+  }
+ ],
+ "categories": [
+  {
+   "series_id": 55099564912,
+   "category": "Absent Parent/s",
+   "votes": 98,
+   "votes_plus": 100,
+   "votes_minus": 4,
+   "added_by": 59641381499
+  },
+  {
+   "series_id": 55099564912,
+   "category": "Abuse of Power",
+   "votes": 42,
+   "votes_plus": 41,
+   "votes_minus": 1,
+   "added_by": 75895522549
+  },
+  {
+   "series_id": 55099564912,
+   "category": "Abusive Authority Figure/s",
+   "votes": 86,
+   "votes_plus": 88,
+   "votes_minus": 4,
+   "added_by": 59641381499
+  },
+  {
+   "series_id": 55099564912,
+   "category": "Adapted to Anime",
+   "votes": 270,
+   "votes_plus": 271,
+   "votes_minus": 5,
+   "added_by": 70424420959
+  }
+ ],
+ "latest_chapter": 1196,
+ "status": "115 Volumes (Ongoing)  \n",
+ "licensed": true,
+ "completed": false,
+ "authors": [
+  {
+   "name": "ODA Eiichiro",
+   "author_id": 30829461792,
+   "url": "https://www.mangaupdates.com/author/e5v2cyo/oda-eiichiro",
+   "type": "Author"
+  },
+  {
+   "name": "ODA Eiichiro",
+   "author_id": 30829461792,
+   "url": "https://www.mangaupdates.com/author/e5v2cyo/oda-eiichiro",
+   "type": "Artist"
+  }
+ ],
+ "publishers": [
+  {
+   "publisher_name": "MANGA Plus",
+   "publisher_id": 36150584673,
+   "url": "https://www.mangaupdates.com/publisher/glv4hnl/manga-plus",
+   "type": "English",
+   "notes": "1186 Chapters; Ongoing"
+  },
+  {
+   "publisher_name": "Shueisha",
+   "publisher_id": 21785245567,
+   "url": "https://www.mangaupdates.com/publisher/a0adf27/shueisha",
+   "type": "Original",
+   "notes": ""
+  },
+  {
+   "publisher_name": "VIZ Media",
+   "publisher_id": 19696828225,
+   "url": "https://www.mangaupdates.com/publisher/91qzdxd/viz-media",
+   "type": "English",
+   "notes": "111 Volumes; Ongoing | 35 3-in-1 Omnibuses; Ongoing"
+  }
+ ],
+ "publications": [
+  {
+   "publication_name": "Shuukan Shounen Jump",
+   "publisher_name": "Shueisha",
+   "publisher_id": 21785245567
+  }
+ ]
+}

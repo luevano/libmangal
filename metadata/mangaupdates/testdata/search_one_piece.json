@@ -1,0 +1,67 @@
+{
+ "total_hits": 10000,
+ "page": 1,
+ "per_page": 5,
+ "results": [
+  {
+   "record": {
+    "series_id": 55099564912,
+    "title": "One Piece",
+    "url": "https://www.mangaupdates.com/series/pb8uwds/one-piece",
+    "type": "Manga",
+    "year": "1997"
+   },
+   "hit_title": "One Piece"
+  },
+  {
+   "record": {
+    "series_id": 34866131632,
+    "title": "Odekake One Piece",
+    "url": "https://www.mangaupdates.com/series/g0me7cg/odekake-one-piece",
+    "type": "Manga",
+    "year": "2015"
+   },
+   "hit_title": "Odekake One Piece"
+  },
+  {
+   "record": {
+    "series_id": 49512032547,
+    "title": "One Piece Party",
+    "url": "https://www.mangaupdates.com/series/mqu6otf/one-piece-party",
+    "type": "Manga",
+    "year": "2014"
+   },
+   "hit_title": "One Piece Party"
+  },
+  {
+   "record": {
+    "series_id": 77556276839,
+    "title": "Koisuru One Piece",
+    "url": "https://www.mangaupdates.com/series/zmn067b/koisuru-one-piece",
+    "type": "Manga",
+    "year": "2018"
+   },
+   "hit_title": "Koisuru One Piece"
+  },
+  {
+   "record": {
+    "series_id": 69500658401,
+    "title": "One Piece dj - Short Piece",
+    "url": "https://www.mangaupdates.com/series/vxewb8h/one-piece-dj-short-piece",
+    "type": "Doujinshi",
+    "year": "2009"
+   },
+   "hit_title": "One Piece dj - Short Piece"
+  },
+  {
+   "record": {
+    "series_id": 1,
+    "title": "One Piece novel",
+    "url": "",
+    "type": "Novel",
+    "year": "2020"
+   },
+   "hit_title": "x"
+  }
+ ]
+}
