@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-const _FormatName = "PDFImagesCBZTARTARGZZIP"
+const _FormatName = "PDFImagesCBZTARTARGZZIPEPUB"
 
-var _FormatIndex = [...]uint8{0, 3, 9, 12, 15, 20, 23}
+var _FormatIndex = [...]uint8{0, 3, 9, 12, 15, 20, 23, 27}
 
-const _FormatLowerName = "pdfimagescbztartargzzip"
+const _FormatLowerName = "pdfimagescbztartargzzipepub"
 
 func (i Format) String() string {
 	i -= 1
@@ -32,9 +32,10 @@ func _FormatNoOp() {
 	_ = x[FormatTAR-(4)]
 	_ = x[FormatTARGZ-(5)]
 	_ = x[FormatZIP-(6)]
+	_ = x[FormatEPUB-(7)]
 }
 
-var _FormatValues = []Format{FormatPDF, FormatImages, FormatCBZ, FormatTAR, FormatTARGZ, FormatZIP}
+var _FormatValues = []Format{FormatPDF, FormatImages, FormatCBZ, FormatTAR, FormatTARGZ, FormatZIP, FormatEPUB}
 
 var _FormatNameToValueMap = map[string]Format{
 	_FormatName[0:3]:        FormatPDF,
@@ -49,6 +50,8 @@ var _FormatNameToValueMap = map[string]Format{
 	_FormatLowerName[15:20]: FormatTARGZ,
 	_FormatName[20:23]:      FormatZIP,
 	_FormatLowerName[20:23]: FormatZIP,
+	_FormatName[23:27]:      FormatEPUB,
+	_FormatLowerName[23:27]: FormatEPUB,
 }
 
 var _FormatNames = []string{
@@ -58,6 +61,7 @@ var _FormatNames = []string{
 	_FormatName[12:15],
 	_FormatName[15:20],
 	_FormatName[20:23],
+	_FormatName[23:27],
 }
 
 // FormatString retrieves an enum value from the enum constants string name.

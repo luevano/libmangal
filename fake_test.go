@@ -38,6 +38,8 @@ type fakeChapter struct {
 	pages  int
 	// ext of the pages, ".jpg" if empty
 	ext string
+	// image of every page, the page's name if nil
+	image []byte
 }
 
 func (c *fakeChapter) String() string              { return c.info.Title }
@@ -111,6 +113,9 @@ func (p *fakeProvider) GetPageImage(ctx context.Context, page mangadata.Page) ([
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if image := page.Chapter().(*fakeChapter).image; image != nil {
+		return image, nil
 	}
 	return []byte(page.String()), nil
 }

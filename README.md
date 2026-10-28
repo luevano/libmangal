@@ -20,6 +20,7 @@ Designed to be the backend for applications such as CLI, TUI, web apps, gRPC ser
 - Different export formats:
   - PDF - chapters stored a single PDF file.
   - CBZ - Comic Book ZIP format.
+  - EPUB - fixed-layout EPUB 3, one page per image.
   - TAR - TAR archive.
   - TAR.GZ - gzipped TAR archive.
   - ZIP - ZIP archive.

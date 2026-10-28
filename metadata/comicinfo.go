@@ -262,13 +262,23 @@ func (c *ComicInfoXML) wrapper(options ComicInfoXMLOptions) comicInfoXMLWrapper 
 // comicInfoNotesFooter ends the Notes Marshal writes.
 const comicInfoNotesFooter = "Downloaded with libmangal\nhttps://github.com/luevano/libmangal"
 
-// mangaReading is the Manga field: manhwa and manhua (webtoons mostly) read left to right.
+// mangaReading is the Manga field.
 func mangaReading(country string) string {
+	if RightToLeft(country) {
+		return "YesAndRightToLeft"
+	}
+	return "Yes"
+}
+
+// RightToLeft reports whether a series from country (ISO 3166-1 alpha-2) reads right to
+// left: manhwa and manhua (webtoons mostly) read left to right, everything else is taken
+// as manga.
+func RightToLeft(country string) bool {
 	switch strings.ToUpper(country) {
 	case "KR", "CN", "TW":
-		return "Yes"
+		return false
 	default:
-		return "YesAndRightToLeft"
+		return true
 	}
 }
 

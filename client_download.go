@@ -8,7 +8,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
@@ -361,33 +363,35 @@ func (c *Client) writeChapter(
 	case FormatCBZ:
 		var comicInfoXML *metadata.ComicInfoXML
 		ciXMLFailed := false
-		if options.WriteComicInfoXML && metadata.Validate(chapter.Volume().Manga().Metadata()) == nil {
-			mangaChapter := chapter.Info()
-			metaChapter := metadata.Chapter{
-				Title:           mangaChapter.Title,
-				URL:             mangaChapter.URL,
-				Number:          mangaChapter.Number,
-				Date:            mangaChapter.Date,
-				ScanlationGroup: mangaChapter.ScanlationGroup,
-				Pages:           len(downloadedPages),
-				Volume:          chapter.Volume().Info().Number,
+		if options.WriteComicInfoXML {
+			comicInfoXML, err = c.chapterComicInfoXML(chapter, len(downloadedPages), options.Strict)
+			if err != nil {
+				return "", err
 			}
-			ciXML, err := c.getComicInfoXML(chapter, metaChapter)
-			switch {
-			case err == nil:
-				comicInfoXML = &ciXML
-			case options.Strict:
-				return "", fmt.Errorf("%s: %w", metadata.FilenameComicInfoXML, err)
-			default:
-				c.logger.Log("getting %s: %s", metadata.FilenameComicInfoXML, err)
-				ciXMLFailed = true
-			}
+			ciXMLFailed = comicInfoXML == nil && metadata.Validate(chapter.Volume().Manga().Metadata()) == nil
 		}
 
 		ciXMLStatus, err = c.saveCBZ(downloadedPages, out, comicInfoXML, options.ComicInfoXMLOptions)
 		if ciXMLFailed {
 			ciXMLStatus = metadata.DownloadStatusFailed
 		}
+	case FormatEPUB:
+		var comicInfoXML *metadata.ComicInfoXML
+		comicInfoXML, err = c.chapterComicInfoXML(chapter, len(downloadedPages), options.Strict)
+		if err != nil {
+			return "", err
+		}
+		title := chapter.Info().Title
+		if title == "" {
+			title = fmt.Sprintf("Chapter %s", strconv.FormatFloat(float64(chapter.Info().Number), 'f', -1, 32))
+		}
+		err = c.saveEPUB(downloadedPages, out, epubBook{
+			id:        epubID(c.Info(), chapter),
+			title:     title,
+			comicInfo: comicInfoXML,
+			options:   options.ComicInfoXMLOptions,
+			modified:  time.Now(),
+		})
 	default:
 		err = fmt.Errorf("unknown format %d", options.Format)
 	}
@@ -395,6 +399,33 @@ func (c *Client) writeChapter(
 		return "", fmt.Errorf("write %s: %w", options.Format, err)
 	}
 	return ciXMLStatus, nil
+}
+
+// chapterComicInfoXML is the chapter's ComicInfo.xml, nil without valid metadata or when
+// it fails without strict (logged).
+func (c *Client) chapterComicInfoXML(chapter mangadata.Chapter, pages int, strict bool) (*metadata.ComicInfoXML, error) {
+	if metadata.Validate(chapter.Volume().Manga().Metadata()) != nil {
+		return nil, nil
+	}
+	mangaChapter := chapter.Info()
+	ciXML, err := c.getComicInfoXML(chapter, metadata.Chapter{
+		Title:           mangaChapter.Title,
+		URL:             mangaChapter.URL,
+		Number:          mangaChapter.Number,
+		Date:            mangaChapter.Date,
+		ScanlationGroup: mangaChapter.ScanlationGroup,
+		Pages:           pages,
+		Volume:          chapter.Volume().Info().Number,
+	})
+	switch {
+	case err == nil:
+		return &ciXML, nil
+	case strict:
+		return nil, fmt.Errorf("%s: %w", metadata.FilenameComicInfoXML, err)
+	default:
+		c.logger.Log("getting %s: %s", metadata.FilenameComicInfoXML, err)
+		return nil, nil
+	}
 }
 
 // DownloadPagesInBatch downloads multiple pages in batch

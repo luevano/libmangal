@@ -27,6 +27,10 @@ const (
 
 	// FormatZIP save chapter images as zip archive
 	FormatZIP
+
+	// FormatEPUB saves chapter as a fixed-layout EPUB 3, one page per image, with the
+	// manga metadata (when valid) in its package document.
+	FormatEPUB
 )
 
 // Extension returns extension of the format with the leading dot.
@@ -42,6 +46,8 @@ func (f Format) Extension() string {
 		return ".tar.gz"
 	case FormatZIP:
 		return ".zip"
+	case FormatEPUB:
+		return ".epub"
 	default:
 		return ""
 	}
@@ -52,7 +58,7 @@ func (f Format) Extension() string {
 func FormatOf(name string) (Format, bool) {
 	lower := strings.ToLower(name)
 	// .tar.gz before .tar
-	for _, format := range []Format{FormatTARGZ, FormatCBZ, FormatPDF, FormatZIP, FormatTAR} {
+	for _, format := range []Format{FormatTARGZ, FormatCBZ, FormatPDF, FormatZIP, FormatTAR, FormatEPUB} {
 		if strings.HasSuffix(lower, format.Extension()) {
 			return format, true
 		}
