@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"image"
+	"image/png"
 	"net/http"
 	"runtime"
 
@@ -64,4 +65,22 @@ func (c *Client) convertToWebP(ctx context.Context, pages []mangadata.PageWithIm
 		})
 	}
 	return g.Wait()
+}
+
+// pdfImage is the page image to give pdfcpu: it takes WebP but reads the limited-range YCbCr
+// as full range, washing out the blacks, so a WebP page goes as a PNG decoded right. A page
+// that fails stays as it is.
+func pdfImage(data []byte) []byte {
+	if http.DetectContentType(data) != "image/webp" {
+		return data
+	}
+	img, err := webp.Decode(bytes.NewReader(data), webp.Options{ToRGBA: true})
+	if err != nil {
+		return data
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return data
+	}
+	return buf.Bytes()
 }

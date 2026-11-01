@@ -108,7 +108,7 @@ func (c *Client) savePDF(
 	// convert to readers
 	images := make([]io.Reader, len(pages))
 	for i, page := range pages {
-		images[i] = bytes.NewReader(page.Image())
+		images[i] = bytes.NewReader(pdfImage(page.Image()))
 	}
 
 	return api.ImportImages(ctx, nil, out, images, nil, nil)

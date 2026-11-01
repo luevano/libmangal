@@ -14,6 +14,8 @@ import (
 
 	"github.com/gen2brain/vpx/webp"
 	"github.com/luevano/libmangal/mangadata"
+	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/spf13/afero"
 )
 
 // noisePNG is a page that lossy WebP does shrink.
@@ -190,5 +192,46 @@ func TestDownloadWebPSource(t *testing.T) {
 				t.Errorf("%s %s: %v", format, ext, err)
 			}
 		}
+	}
+}
+
+// TestPDFWebPKeepsBlacks: pdfcpu alone gets black 16 out of a WebP page.
+func TestPDFWebPKeepsBlacks(t *testing.T) {
+	c, options := newDownloadTest(t)
+	options.Format = FormatPDF
+	chapter := newFakeChapter(validMeta(), 1)
+	chapter.ext = ".webp"
+	chapter.image = blackWebP(t)
+	down, err := c.DownloadChapterContext(context.Background(), chapter, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	pdf := filepath.Join(dir, "chapter.pdf")
+	data, err := afero.ReadFile(c.options.FS, filepath.Join(down.Directory, down.Filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pdf, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := api.ExtractImagesFile(context.Background(), pdf, dir, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	found, err := filepath.Glob(filepath.Join(dir, "*.png"))
+	if err != nil || len(found) != 1 {
+		t.Fatalf("extracted %v, err %v", found, err)
+	}
+	extracted, err := os.Open(found[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer extracted.Close()
+	img, err := png.Decode(extracted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, _, _, _ := img.At(1, 1).RGBA(); r>>8 > 2 {
+		t.Errorf("black came out as %d", r>>8)
 	}
 }
