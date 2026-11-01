@@ -1,8 +1,10 @@
 package metadata
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 type comicMeta struct {
@@ -19,6 +21,7 @@ func TestComicInfoXML(t *testing.T) {
 		Number:          0,
 		ScanlationGroup: "Some Group",
 		Pages:           24,
+		Date:            Date{1989, 8, 25},
 	})
 	out, err := ci.Marshal(DefaultComicInfoOptions())
 	if err != nil {
@@ -99,5 +102,19 @@ func TestComicInfoXMLFields(t *testing.T) {
 	out, _ = ci.Marshal(DefaultComicInfoOptions())
 	if strings.Contains(string(out), "<Volume>") {
 		t.Error("volume written without AddVolume")
+	}
+}
+
+func TestToComicInfoXMLChapterDate(t *testing.T) {
+	info := ToComicInfoXML(&comicMeta{}, Chapter{Date: Date{2020, 1, 2}})
+	if info.Year != 2020 || info.Month != 1 || info.Day != 2 {
+		t.Errorf("chapter date not used: %d-%d-%d", info.Year, info.Month, info.Day)
+	}
+
+	before := time.Now()
+	info = ToComicInfoXML(&comicMeta{}, Chapter{})
+	after := time.Now()
+	if got := fmt.Sprintf("%d-%d-%d", info.Year, info.Month, info.Day); got != before.Format("2006-1-2") && got != after.Format("2006-1-2") {
+		t.Errorf("no chapter date gave %s, want today", got)
 	}
 }

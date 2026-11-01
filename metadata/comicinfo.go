@@ -3,6 +3,7 @@ package metadata
 import (
 	"encoding/xml"
 	"strings"
+	"time"
 )
 
 // Chapter is the ComicInfoXML extra chapter information.
@@ -28,12 +29,11 @@ type AgeRated interface {
 const AgeRatingAdultsOnly = "Adults Only 18+"
 
 func ToComicInfoXML(m Metadata, chapter Chapter) ComicInfoXML {
-	var date Date
-	// If no chapter date is defined, use Metadata.StartDate
-	if chapter.Date != (Date{}) {
-		date = chapter.Date
-	} else {
-		date = m.StartDate()
+	date := chapter.Date
+	// the manga's start date would put a new chapter years before the previous one
+	if date == (Date{}) {
+		now := time.Now()
+		date = Date{Year: now.Year(), Month: int(now.Month()), Day: now.Day()}
 	}
 
 	// If ScanlationGroup is set, use it as the only "translators" instead of Anilist Translators list
