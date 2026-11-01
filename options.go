@@ -113,12 +113,15 @@ type DownloadOptions struct {
 
 	// ImageTransformer is applied for each image for the chapter.
 	//
-	// E.g. grayscale effect. Nil leaves the images as they are.
+	// E.g. grayscale effect. Nil leaves the images as they are. WebP pages come as they are:
+	// Go's decoders return them as limited-range YCbCr, so a transformer has to expand the
+	// range before encoding them again or the blacks wash out.
 	ImageTransformer func([]byte) ([]byte, error)
 
 	// ImageFormat the page images are saved as (after ImageTransformer), the zero value is
 	// ImageFormatOriginal. Ignored for FormatPDF (the PDF would hold them decoded again).
-	// Pages that already are WebP, or that can't be decoded, are kept as they are.
+	// A page keeps its original bytes when it already is WebP, can't be converted, or the
+	// WebP wouldn't be smaller.
 	ImageFormat ImageFormat
 
 	// ImageQuality of the ImageFormat conversion, 1 to 100, 0 is DefaultImageQuality.

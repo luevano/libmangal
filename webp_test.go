@@ -5,6 +5,9 @@ import (
 	"bytes"
 	"context"
 	"image"
+	"image/jpeg"
+	"image/png"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,10 +16,29 @@ import (
 	"github.com/luevano/libmangal/mangadata"
 )
 
+// noisePNG is a page that lossy WebP does shrink.
+func noisePNG(t *testing.T, w, h int) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, noiseImage(w, h)); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func noiseImage(w, h int) *image.Gray {
+	img := image.NewGray(image.Rect(0, 0, w, h))
+	random := rand.New(rand.NewPCG(1, 2))
+	for i := range img.Pix {
+		img.Pix[i] = byte(random.Uint32())
+	}
+	return img
+}
+
 func TestConvertToWebP(t *testing.T) {
 	c := newTestClient(t)
 	chapter := newFakeChapter(nil, 3)
-	png := testPNG(t, 30, 40)
+	png := noisePNG(t, 30, 40)
 	var already bytes.Buffer
 	if err := webp.Encode(&already, image.NewGray(image.Rect(0, 0, 5, 5))); err != nil {
 		t.Fatal(err)
@@ -50,12 +72,55 @@ func TestConvertToWebP(t *testing.T) {
 	}
 }
 
+func TestConvertToWebPKeepsOriginal(t *testing.T) {
+	// over libwebp's 16383 px limit
+	var tall bytes.Buffer
+	if err := png.Encode(&tall, image.NewGray(image.Rect(0, 0, 2, 16384))); err != nil {
+		t.Fatal(err)
+	}
+	// noise at JPEG quality 1 is small, WebP quality 100 has to spell out its artifacts
+	var small bytes.Buffer
+	if err := jpeg.Encode(&small, noiseImage(64, 64), &jpeg.Options{Quality: 1}); err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := jpeg.Decode(bytes.NewReader(small.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var encoded bytes.Buffer
+	if err := webp.Encode(&encoded, decoded, webp.Options{Quality: 100, Method: webp.DefaultMethod}); err != nil {
+		t.Fatal(err)
+	}
+	if encoded.Len() < small.Len() {
+		t.Fatalf("the WebP is smaller (%d < %d), no use for this test", encoded.Len(), small.Len())
+	}
+
+	c := newTestClient(t)
+	chapter := newFakeChapter(nil, 2)
+	images := [][]byte{tall.Bytes(), small.Bytes()}
+	pages := make([]mangadata.PageWithImage, len(images))
+	for i, data := range images {
+		pages[i] = &pageWithImage{Page: &fakePage{chapter: chapter, n: i + 1}, image: data}
+	}
+	if err := c.convertToWebP(context.Background(), pages, 100); err != nil {
+		t.Fatal(err)
+	}
+	for i, data := range images {
+		if !bytes.Equal(pages[i].Image(), data) {
+			t.Errorf("page %d changed", i+1)
+		}
+		if got := pages[i].Extension(); got != ".jpg" {
+			t.Errorf("page %d extension %q", i+1, got)
+		}
+	}
+}
+
 func TestDownloadWebP(t *testing.T) {
 	c, options := newDownloadTest(t)
 	options.ImageFormat = ImageFormatWebP
 	chapter := newFakeChapter(validMeta(), 2)
 	chapter.ext = ".png"
-	chapter.image = testPNG(t, 20, 20)
+	chapter.image = noisePNG(t, 20, 20)
 	down, err := c.DownloadChapterContext(context.Background(), chapter, options)
 	if err != nil {
 		t.Fatal(err)
