@@ -12,8 +12,11 @@ import (
 	"github.com/luevano/libmangal/netutil"
 )
 
+// imageAccept is the Accept header of image requests, what a browser sends.
+const imageAccept = "image/webp,image/apng,image/*,*/*;q=0.8"
+
 // PageImageRequest is what FetchPageImage gets: a page image URL with the headers and
-// cookies the site wants.
+// cookies the site wants. Without an Accept header, FetchPageImage sends imageAccept.
 type PageImageRequest struct {
 	URL     string
 	Headers map[string]string
@@ -117,6 +120,9 @@ func fetchPageImage(ctx context.Context, client *http.Client, page PageImageRequ
 	}
 	for key, value := range page.Headers {
 		request.Header.Set(key, value)
+	}
+	if request.Header.Get("Accept") == "" {
+		request.Header.Set("Accept", imageAccept)
 	}
 	for key, value := range page.Cookies {
 		request.AddCookie(&http.Cookie{Name: key, Value: value})

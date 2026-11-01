@@ -265,7 +265,7 @@ func (c *Client) downloadMangaImage(
 		}
 	}
 	request.Header.Set("User-Agent", c.options.UserAgent)
-	request.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
+	request.Header.Set("Accept", imageAccept)
 
 	response, err := c.options.HTTPClient.Do(request)
 	if err != nil {

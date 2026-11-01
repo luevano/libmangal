@@ -135,3 +135,26 @@ func TestFetchPageImageRetries(t *testing.T) {
 		t.Errorf("cancelled: %v", err)
 	}
 }
+
+func TestFetchPageImageAccept(t *testing.T) {
+	var got string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("Accept")
+	}))
+	defer server.Close()
+	for _, c := range []struct {
+		headers map[string]string
+		want    string
+	}{
+		{nil, imageAccept},
+		{map[string]string{"Referer": "x"}, imageAccept},
+		{map[string]string{"accept": "image/jpeg"}, "image/jpeg"},
+	} {
+		if _, err := FetchPageImage(context.Background(), server.Client(), PageImageRequest{URL: server.URL, Headers: c.headers}, FetchPageImageOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if got != c.want {
+			t.Errorf("headers %v: Accept %q, want %q", c.headers, got, c.want)
+		}
+	}
+}
