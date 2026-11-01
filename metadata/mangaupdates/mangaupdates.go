@@ -14,13 +14,13 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"time"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/metadata"
 	"github.com/luevano/libmangal/metadata/internal/ratelimit"
-	"github.com/luevano/libmangal/progress"
 	"golang.org/x/time/rate"
 )
 
@@ -28,9 +28,8 @@ import (
 
 const (
 	apiURL = "https://api.mangaupdates.com/v1"
-	// searchLimit is how many search results are kept: each one takes a request
-	// for the full series (search records have no authors or status).
-	searchLimit = 5
+	// searchPerPage is how many search results are asked for, they all come in one request.
+	searchPerPage = 25
 	// requestInterval: the API has no documented limit, its acceptable use policy asks for
 	// "reasonable spacing between requests" and caching (https://api.mangaupdates.com/,
 	// 2026-10-28), so one request a second.
@@ -115,57 +114,38 @@ func (p *MangaUpdates) SearchByID(ctx context.Context, id int) (metadata.Metadat
 	return &m, true, nil
 }
 
-// Search for metadata with the given query.
+// skippedTypes are left out of searches: not comics, or doujinshi (fan works), which
+// otherwise crowd out the series (23 of the first 25 of an "attack on titan" search).
+var skippedTypes = []string{"Novel", "Drama CD", "Artbook", "Doujinshi"}
+
+// Search for metadata with the given query, one request. The results are Partial: search
+// records have no authors, status, categories or associated titles.
 //
 // Implementation should only handle the request and marshaling.
-//
-// One request for the search and one for each of its first results (see skipType).
 func (p *MangaUpdates) Search(ctx context.Context, query string) ([]metadata.Metadata, error) {
 	var res struct {
 		Results []struct {
-			Record struct {
-				SeriesID int64  `json:"series_id"`
-				Type     string `json:"type"`
-			} `json:"record"`
+			Record   Manga  `json:"record"`
+			HitTitle string `json:"hit_title"`
 		} `json:"results"`
 	}
-	body := map[string]any{"search": query, "perpage": searchLimit * 2}
+	body := map[string]any{"search": query, "perpage": searchPerPage, "filter_types": skippedTypes}
 	if err := p.request(ctx, http.MethodPost, "series/search", body, &res); err != nil {
 		return nil, fmt.Errorf("search %q: %w", query, err)
 	}
 
-	var ids []int
-	for _, r := range res.Results {
-		// ids that don't fit an int (32-bit platforms) can't be looked up
-		if r.Record.SeriesID > 0 && r.Record.SeriesID <= math.MaxInt && !skipType(r.Record.Type) && len(ids) < searchLimit {
-			ids = append(ids, int(r.Record.SeriesID))
-		}
-	}
 	var metas []metadata.Metadata
-	for i, id := range ids {
-		if len(ids) > 1 {
-			progress.Report(ctx, progress.Status{Source: info.ID, Message: "looking up MangaUpdates series", Done: i + 1, Total: len(ids)})
+	for _, r := range res.Results {
+		m := r.Record
+		// ids that don't fit an int (32-bit platforms) can't be looked up
+		if m.SeriesID <= 0 || m.SeriesID > math.MaxInt || slices.Contains(skippedTypes, m.Type) {
+			continue
 		}
-		meta, found, err := p.SearchByID(ctx, id)
-		if err != nil {
-			return nil, fmt.Errorf("search %q: %w", query, err)
-		}
-		if found {
-			metas = append(metas, meta)
-		}
+		m.SearchRecord, m.HitTitle = true, r.HitTitle
+		metas = append(metas, &m)
 	}
 	p.logger.Log("found %d manga(s) on MangaUpdates", len(metas))
 	return metas, nil
-}
-
-// skipType is whether search results of the type are left out: not comics, or
-// doujinshi (fan works), which otherwise crowd out the series (a "frieren" search).
-func skipType(t string) bool {
-	switch t {
-	case "Novel", "Drama CD", "Artbook", "Doujinshi":
-		return true
-	}
-	return false
 }
 
 // SetMangaProgress isn't supported: errors.ErrUnsupported.

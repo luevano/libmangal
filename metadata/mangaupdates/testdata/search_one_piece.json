@@ -1,7 +1,7 @@
 {
  "total_hits": 10000,
  "page": 1,
- "per_page": 5,
+ "per_page": 25,
  "results": [
   {
    "record": {
@@ -9,7 +9,43 @@
     "title": "One Piece",
     "url": "https://www.mangaupdates.com/series/pb8uwds/one-piece",
     "type": "Manga",
-    "year": "1997"
+    "year": "1997",
+    "description": "As a child, Monkey D. Luffy was inspired to become a pirate by listening to the tales of \"Red-Haired\" Shanks. But his life changed when Luffy accidentally ate the Gum-Gum Devil Fruit and gained the power to stretch like rubber at the cost of never being able to swim again. Years later, still vowing to become the king of the pirates, Luffy sets out on his adventure one guy alone in a rowboat, in search of the legendary \"One Piece,\" said to be the greatest treasure in the world.",
+    "image": {
+     "url": {
+      "original": "https://cdn.mangaupdates.com/image/i531056.jpg",
+      "thumb": "https://cdn.mangaupdates.com/image/thumb/i531056.jpg"
+     },
+     "height": 400,
+     "width": 255
+    },
+    "bayesian_rating": 8.89,
+    "genres": [
+     {
+      "genre": "Action"
+     },
+     {
+      "genre": "Adventure"
+     },
+     {
+      "genre": "Comedy"
+     },
+     {
+      "genre": "Drama"
+     },
+     {
+      "genre": "Fantasy"
+     },
+     {
+      "genre": "Shounen"
+     }
+    ],
+    "rating_votes": 4000,
+    "last_updated": {
+     "timestamp": 1792413315,
+     "as_rfc3339": "2026-10-19T05:35:15-07:00",
+     "as_string": "October 19th, 2026 5:35am PDT"
+    }
    },
    "hit_title": "One Piece"
   },
@@ -21,7 +57,7 @@
     "type": "Manga",
     "year": "2015"
    },
-   "hit_title": "Odekake One Piece"
+   "hit_title": "Sasakure One Piece"
   },
   {
    "record": {

@@ -240,6 +240,19 @@ type Metadata interface {
 	ExtraIDs() []ID
 }
 
+// Partial is a Metadata that may hold only what a search answers, enough to show and score
+// it (ProviderWithCache caches it as a search result, never as the manga). Get the whole
+// manga with ProviderWithCache.SearchByID.
+type Partial interface {
+	Partial() bool
+}
+
+// IsPartial reports whether m is only a search result, see Partial.
+func IsPartial(m Metadata) bool {
+	partial, ok := m.(Partial)
+	return ok && partial.Partial()
+}
+
 // Validate will make sure the Metadata is valid/usable
 // to write enough metadata to files.
 //

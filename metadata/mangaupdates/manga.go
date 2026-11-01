@@ -57,6 +57,18 @@ type Manga struct {
 		// Type is Original or English.
 		Type string `json:"type"`
 	} `json:"publishers"`
+
+	// SearchRecord: this is a search result (not an API field), see Partial.
+	SearchRecord bool `json:"search_record,omitempty"`
+	// HitTitle is the title the search matched, of a search result: often not the main one
+	// ("Attack on Titan" hits "Shingeki no Kyojin").
+	HitTitle string `json:"hit_title,omitempty"`
+}
+
+// Partial is whether this is a search result, without authors, status, categories or
+// associated titles (see metadata.Partial).
+func (m *Manga) Partial() bool {
+	return m.SearchRecord
 }
 
 // String is the short representation of the manga.
@@ -82,7 +94,10 @@ func (m *Manga) Title() string {
 
 // AlternateTitles is a list of alternative titles in order of relevance.
 func (m *Manga) AlternateTitles() []string {
-	titles := make([]string, 0, len(m.Associated))
+	titles := make([]string, 0, len(m.Associated)+1)
+	if m.HitTitle != "" && m.HitTitle != m.SeriesTitle {
+		titles = append(titles, m.HitTitle)
+	}
 	for _, a := range m.Associated {
 		if a.Title != "" {
 			titles = append(titles, a.Title)
@@ -203,8 +218,12 @@ func (m *Manga) Publisher() string {
 //
 // One of: FINISHED, RELEASING, NOT_YET_RELEASED, CANCELLED, HIATUS
 //
-// From the status text ("115 Volumes (Ongoing)"), else whether it's completed.
+// From the status text ("115 Volumes (Ongoing)"), else whether it's completed. A search
+// result doesn't say: empty.
 func (m *Manga) Status() metadata.Status {
+	if m.SearchRecord {
+		return ""
+	}
 	status := strings.ToLower(m.StatusText)
 	switch {
 	case strings.Contains(status, "hiatus"):

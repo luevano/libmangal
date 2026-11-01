@@ -209,3 +209,59 @@ func TestSearchFetchesExpiredIDsInOneBatch(t *testing.T) {
 			fake.manyCalls, fake.idsCalls, len(fake.idCalls), len(fake.queries))
 	}
 }
+
+// partialMeta is a search result until fetched by id.
+type partialMeta struct {
+	fakeMeta
+	partial bool
+}
+
+func (m *partialMeta) Partial() bool { return m.partial }
+
+func TestPartialResults(t *testing.T) {
+	whole := &partialMeta{fakeMeta: fakeMeta{id: 1, title: "Berserk"}}
+	record := &partialMeta{fakeMeta: fakeMeta{id: 1, title: "Berserk"}, partial: true}
+	other := &partialMeta{fakeMeta: fakeMeta{id: 2, title: "Zzzzzzz"}, partial: true}
+	fake := &fakeProvider{
+		byID:    map[int]Metadata{1: whole, 2: &partialMeta{fakeMeta: fakeMeta{id: 2, title: "Zzzzzzz"}}},
+		byQuery: map[string][]Metadata{"berserk": {record, other}, "again": {record}, "nomatch": {other}},
+	}
+	p := newTestProvider(t, fake)
+	ctx := context.Background()
+
+	if _, err := p.SearchContext(ctx, "berserk"); err != nil {
+		t.Fatal(err)
+	}
+	if results, err := p.SearchContext(ctx, "berserk"); err != nil || len(results) != 2 || results[0] != Metadata(record) {
+		t.Errorf("cached search: %v, err %v", results, err)
+	}
+	if len(fake.idCalls) != 0 {
+		t.Errorf("searching got ids %v", fake.idCalls)
+	}
+	if cached, err := p.CachedByIDs([]int{1}); err != nil || len(cached) != 0 {
+		t.Errorf("CachedByIDs: %v, err %v", cached, err)
+	}
+
+	// a bad match isn't fetched, the good one is
+	bad, found, err := p.FindClosestContext(ctx, Query{Titles: []string{"nomatch"}})
+	if err != nil || !found || !bad.Bad() || !IsPartial(bad.Metadata) || len(fake.idCalls) != 0 {
+		t.Errorf("bad match %+v, found %v, err %v, ids %v", bad, found, err, fake.idCalls)
+	}
+	good, found, err := p.FindClosestContext(ctx, Query{Titles: []string{"berserk"}})
+	if err != nil || !found || good.Metadata != Metadata(whole) || len(fake.idCalls) != 1 {
+		t.Errorf("good match %+v, found %v, err %v, ids %v", good, found, err, fake.idCalls)
+	}
+
+	// the whole one stays, a new search doesn't replace it
+	if results, err := p.SearchContext(ctx, "again"); err != nil || results[0] != Metadata(whole) {
+		t.Errorf("new search: %v, err %v", results, err)
+	}
+	if meta, ok, err := p.SearchByIDContext(ctx, 1); err != nil || !ok || meta != Metadata(whole) || len(fake.idCalls) != 1 {
+		t.Errorf("by id: %v, %v, err %v, ids %v", meta, ok, err, fake.idCalls)
+	}
+
+	// a cached search result isn't the manga
+	if meta, ok, err := p.SearchByIDContext(ctx, 2); err != nil || !ok || IsPartial(meta) {
+		t.Errorf("by id: %v, %v, err %v", meta, ok, err)
+	}
+}

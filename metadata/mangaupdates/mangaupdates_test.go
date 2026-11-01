@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -18,7 +19,8 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// testdata: trimmed answers of the live API (2026-10-28), plus a novel in the search.
+// testdata: trimmed answers of the live API (2026-10-28), plus a novel and a hit on another
+// title in the search.
 func newTestMangaUpdates(t *testing.T, handler http.HandlerFunc) *MangaUpdates {
 	t.Helper()
 	server := httptest.NewServer(handler)
@@ -41,17 +43,15 @@ func fixtureHandler(t *testing.T, requests *atomic.Int32) http.HandlerFunc {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/series/search":
 			var body struct {
-				Search string `json:"search"`
+				Search      string   `json:"search"`
+				FilterTypes []string `json:"filter_types"`
 			}
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Search != "one piece" || r.Header.Get("Content-Type") != "application/json" {
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Search != "one piece" || !slices.Contains(body.FilterTypes, "Doujinshi") || r.Header.Get("Content-Type") != "application/json" {
 				t.Errorf("search body %+v (%v), content type %q", body, err, r.Header.Get("Content-Type"))
 			}
 			http.ServeFile(w, r, "testdata/search_one_piece.json")
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/series/55099564912":
 			http.ServeFile(w, r, "testdata/series_55099564912.json")
-		case r.URL.Path == "/v1/series/1", r.URL.Path == "/v1/series/69500658401":
-			t.Errorf("%s: a skipped type was looked up", r.URL.Path)
-			w.WriteHeader(http.StatusNotFound)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -109,12 +109,79 @@ func TestSearch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// the other mangas aren't in testdata (404, left out), the doujinshi and novel aren't looked up
-	if len(metas) != 1 || metas[0].Title() != "One Piece" {
-		t.Errorf("got %v", metas)
+	if got := requests.Load(); got != 1 {
+		t.Errorf("%d requests, want 1", got)
 	}
-	if got := requests.Load(); got != 1+4 {
-		t.Errorf("%d requests, want 5", got)
+	// the doujinshi and novel are left out
+	if len(metas) != 4 {
+		t.Fatalf("got %v", metas)
+	}
+	m := metas[0].(*Manga)
+	if !metadata.IsPartial(m) || m.Status() != "" || len(m.Authors()) != 0 {
+		t.Errorf("not a partial result: %+v", m)
+	}
+	if err := metadata.Validate(m); err == nil {
+		t.Error("a search result is valid")
+	}
+	for name, c := range map[string][2]any{
+		"String": {m.String(), "One Piece (1997) [muid-55099564912]"},
+		"Score":  {m.Score(), float32(8.89) / 2},
+		"Cover":  {m.Cover(), "https://cdn.mangaupdates.com/image/i531056.jpg"},
+		"Genres": {len(m.Genres()), 6},
+		"Hit":    {metas[1].AlternateTitles(), []string{"Sasakure One Piece"}},
+	} {
+		if !reflect.DeepEqual(c[0], c[1]) {
+			t.Errorf("%s = %v, want %v", name, c[0], c[1])
+		}
+	}
+}
+
+// TestSearchCached: searching costs one request however often, matching one more for the
+// chosen series only, and a whole series isn't replaced by its search result.
+func TestSearchCached(t *testing.T) {
+	if strconv.IntSize < 64 {
+		t.Skip("series ids don't fit a 32-bit int")
+	}
+	var requests atomic.Int32
+	options := metadata.DefaultProviderWithCacheOptions()
+	options.Provider = newTestMangaUpdates(t, fixtureHandler(t, &requests))
+	p, err := metadata.NewProviderWithCache(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	ctx := context.Background()
+
+	for range 2 {
+		metas, err := p.SearchContext(ctx, "one piece")
+		if err != nil || len(metas) != 4 {
+			t.Fatalf("got %v, err %v", metas, err)
+		}
+	}
+	if got := requests.Load(); got != 1 {
+		t.Errorf("%d requests after two searches, want 1", got)
+	}
+
+	match, found, err := p.FindClosestContext(ctx, metadata.Query{Titles: []string{"one piece"}})
+	if err != nil || !found {
+		t.Fatalf("found %v, err %v", found, err)
+	}
+	if err := metadata.Validate(match.Metadata); err != nil {
+		t.Errorf("the chosen series: %v", err)
+	}
+	if got := requests.Load(); got != 2 {
+		t.Errorf("%d requests after matching, want 2", got)
+	}
+
+	metas, err := p.SearchContext(ctx, "one piece")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metadata.IsPartial(metas[0]) || !metadata.IsPartial(metas[1]) {
+		t.Errorf("after matching: partial %v, %v", metadata.IsPartial(metas[0]), metadata.IsPartial(metas[1]))
+	}
+	if got := requests.Load(); got != 2 {
+		t.Errorf("%d requests after searching again, want 2", got)
 	}
 }
 

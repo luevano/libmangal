@@ -39,7 +39,7 @@ func (p *ProviderWithCache) SearchManyContext(ctx context.Context, queries []str
 	}
 
 	if len(allIDs) != 0 {
-		metas, err := p.SearchByIDsContext(ctx, allIDs)
+		metas, err := p.searchByIDs(ctx, allIDs, true)
 		if err != nil {
 			return nil, err
 		}
@@ -79,10 +79,20 @@ func (p *ProviderWithCache) SearchManyContext(ctx context.Context, queries []str
 			if err != nil {
 				return nil, fmt.Errorf("%s: search %q: result %q: id %q isn't an integer", p.Info().ID, query, meta, meta.ID().Raw)
 			}
+			ids[k] = id
+			if IsPartial(meta) {
+				cached, ok, err := p.store.getMeta(id)
+				if err != nil {
+					return nil, p.cacheError(err)
+				}
+				if ok && !IsPartial(cached) {
+					searched[j][k] = cached
+					continue
+				}
+			}
 			if err := p.store.setMeta(id, meta); err != nil {
 				return nil, p.cacheError(err)
 			}
-			ids[k] = id
 		}
 		if err := p.store.setQueryIDs(query, ids); err != nil {
 			return nil, p.cacheError(err)
@@ -102,6 +112,11 @@ func (p *ProviderWithCache) SearchByIDs(ids []int) (map[int]Metadata, error) {
 
 // SearchByIDsContext is SearchByIDs with a context.
 func (p *ProviderWithCache) SearchByIDsContext(ctx context.Context, ids []int) (map[int]Metadata, error) {
+	return p.searchByIDs(ctx, ids, false)
+}
+
+// searchByIDs is SearchByIDs, cached search results (see Partial) only do if partialOK.
+func (p *ProviderWithCache) searchByIDs(ctx context.Context, ids []int, partialOK bool) (map[int]Metadata, error) {
 	found := make(map[int]Metadata, len(ids))
 	var missing []int
 	for _, id := range ids {
@@ -112,7 +127,7 @@ func (p *ProviderWithCache) SearchByIDsContext(ctx context.Context, ids []int) (
 		if err != nil {
 			return nil, p.cacheError(err)
 		}
-		if ok {
+		if ok && (partialOK || !IsPartial(meta)) {
 			found[id] = meta
 		} else if !slices.Contains(missing, id) {
 			missing = append(missing, id)
@@ -128,7 +143,7 @@ func (p *ProviderWithCache) SearchByIDsContext(ctx context.Context, ids []int) (
 }
 
 // CachedByIDs is the cached metadata of the ids, without asking the provider: ids not
-// cached (or expired) are left out.
+// cached (or expired, or only a search result, see Partial) are left out.
 func (p *ProviderWithCache) CachedByIDs(ids []int) (map[int]Metadata, error) {
 	found := make(map[int]Metadata, len(ids))
 	for _, id := range ids {
@@ -139,7 +154,7 @@ func (p *ProviderWithCache) CachedByIDs(ids []int) (map[int]Metadata, error) {
 		if err != nil {
 			return nil, p.cacheError(err)
 		}
-		if ok {
+		if ok && !IsPartial(meta) {
 			found[id] = meta
 		}
 	}
@@ -339,6 +354,15 @@ func (p *ProviderWithCache) FindClosestManyContext(ctx context.Context, queries 
 		id, err := strconv.Atoi(match.Metadata.ID().Raw)
 		if err != nil {
 			return nil, nil, fmt.Errorf("%s: closest to %q: id %q isn't an integer", p.Info().ID, title, match.Metadata.ID().Raw)
+		}
+		if IsPartial(match.Metadata) {
+			full, ok, err := p.SearchByIDContext(ctx, id)
+			if err != nil {
+				return nil, nil, err
+			}
+			if ok {
+				matches[i].Metadata = full
+			}
 		}
 		if err := p.store.setTitleID(title, id); err != nil {
 			return nil, nil, p.cacheError(err)

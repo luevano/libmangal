@@ -94,7 +94,7 @@ type Provider interface {
 	// Implementation should only handle the request and marshaling.
 	SearchByID(ctx context.Context, id int) (Metadata, bool, error)
 
-	// Search for metadata with the given query.
+	// Search for metadata with the given query. The results may be Partial.
 	//
 	// Implementation should only handle the request and marshaling.
 	Search(ctx context.Context, query string) ([]Metadata, error)
@@ -218,7 +218,7 @@ func (p *ProviderWithCache) SearchByIDContext(ctx context.Context, id int) (Meta
 	if err != nil {
 		return nil, false, p.cacheError(err)
 	}
-	if found {
+	if found && !IsPartial(meta) {
 		return meta, true, nil
 	}
 
@@ -237,7 +237,7 @@ func (p *ProviderWithCache) SearchByIDContext(ctx context.Context, id int) (Meta
 	return meta, true, nil
 }
 
-// Search for metadata with the given query.
+// Search for metadata with the given query. The results may be Partial.
 //
 // Implementation should only handle the request and marshaling.
 func (p *ProviderWithCache) Search(query string) ([]Metadata, error) {
@@ -264,7 +264,7 @@ const maxMatchSearches = 3
 // query's titles are searched in order until a good match, and every result is
 // scored (see Rank). found is false only when there were no results at all; the best
 // match is returned even if it's bad (Match.Bad), for the user to judge, but only
-// good matches are remembered for the title.
+// good matches are remembered for the title and are sure to be whole (see Partial).
 func (p *ProviderWithCache) FindClosest(query Query) (match Match, found bool, err error) {
 	return p.FindClosestContext(context.Background(), query)
 }
