@@ -38,19 +38,22 @@ func _FormatNoOp() {
 var _FormatValues = []Format{FormatPDF, FormatImages, FormatCBZ, FormatTAR, FormatTARGZ, FormatZIP, FormatEPUB}
 
 var _FormatNameToValueMap = map[string]Format{
-	_FormatName[0:3]:        FormatPDF,
+	_FormatName[0:3]:   FormatPDF,
+	_FormatName[3:9]:   FormatImages,
+	_FormatName[9:12]:  FormatCBZ,
+	_FormatName[12:15]: FormatTAR,
+	_FormatName[15:20]: FormatTARGZ,
+	_FormatName[20:23]: FormatZIP,
+	_FormatName[23:27]: FormatEPUB,
+}
+
+var _FormatLowerNameToValueMap = map[string]Format{
 	_FormatLowerName[0:3]:   FormatPDF,
-	_FormatName[3:9]:        FormatImages,
 	_FormatLowerName[3:9]:   FormatImages,
-	_FormatName[9:12]:       FormatCBZ,
 	_FormatLowerName[9:12]:  FormatCBZ,
-	_FormatName[12:15]:      FormatTAR,
 	_FormatLowerName[12:15]: FormatTAR,
-	_FormatName[15:20]:      FormatTARGZ,
 	_FormatLowerName[15:20]: FormatTARGZ,
-	_FormatName[20:23]:      FormatZIP,
 	_FormatLowerName[20:23]: FormatZIP,
-	_FormatName[23:27]:      FormatEPUB,
 	_FormatLowerName[23:27]: FormatEPUB,
 }
 
@@ -71,7 +74,7 @@ func FormatString(s string) (Format, error) {
 		return val, nil
 	}
 
-	if val, ok := _FormatNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _FormatLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, fmt.Errorf("%s does not belong to Format values", s)

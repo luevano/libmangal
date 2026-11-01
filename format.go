@@ -2,7 +2,7 @@ package libmangal
 
 import "strings"
 
-//go:generate enumer -type=Format -trimprefix=Format -json -yaml -text
+//go:generate go tool enumer -type=Format -trimprefix=Format -json -yaml -text
 
 // Format is the format for saving chapters
 type Format uint8

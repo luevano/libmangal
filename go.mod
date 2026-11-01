@@ -20,10 +20,15 @@ require (
 
 require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
+	github.com/dmarkham/enumer v1.7.2 // indirect
 	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/hhrutter/tiff v1.0.7 // indirect
 	github.com/mattn/go-runewidth v0.0.31 // indirect
+	github.com/pascaldekloe/name v1.0.0 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 )
+
+tool github.com/dmarkham/enumer
