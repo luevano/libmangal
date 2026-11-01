@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -64,9 +65,9 @@ func TestConvertToWebP(t *testing.T) {
 	if !bytes.Equal(pages[1].Image(), already.Bytes()) {
 		t.Error("a WebP page was encoded again")
 	}
-	for i, want := range []string{".webp", ".webp", ".jpg"} {
-		if got := pages[i].Extension(); got != want {
-			t.Errorf("page %d extension %q, want %q", i+1, got, want)
+	for i, want := range []string{"0001.webp", "0002.webp", "0003.jpg"} {
+		if got, err := pageName(i, pages[i]); err != nil || got != want {
+			t.Errorf("page %d name %q (%v), want %q", i+1, got, err, want)
 		}
 	}
 	if string(pages[2].Image()) != "not an image" {
@@ -107,13 +108,69 @@ func TestConvertToWebPKeepsOriginal(t *testing.T) {
 	if err := c.convertToWebP(context.Background(), pages, 100); err != nil {
 		t.Fatal(err)
 	}
+	want := []string{"0001.png", "0002.jpg"}
 	for i, data := range images {
 		if !bytes.Equal(pages[i].Image(), data) {
 			t.Errorf("page %d changed", i+1)
 		}
-		if got := pages[i].Extension(); got != ".jpg" {
-			t.Errorf("page %d extension %q", i+1, got)
+		if got, err := pageName(i, pages[i]); err != nil || filepath.Ext(got) != filepath.Ext(want[i]) {
+			t.Errorf("page %d name %q (%v), want %s", i+1, got, err, want[i])
 		}
+	}
+}
+
+// a site's WebP behind a .jpg url is named .webp without converting anything.
+func TestDownloadNamesPagesByContent(t *testing.T) {
+	var page bytes.Buffer
+	if err := webp.Encode(&page, image.NewGray(image.Rect(0, 0, 5, 5))); err != nil {
+		t.Fatal(err)
+	}
+	c, options := newDownloadTest(t)
+	chapter := newFakeChapter(validMeta(), 1)
+	chapter.image = page.Bytes()
+
+	options.Format = FormatCBZ
+	down, err := c.DownloadChapterContext(context.Background(), chapter, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := zip.OpenReader(filepath.Join(down.Directory, down.Filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if r.File[0].Name != "0001.webp" {
+		t.Errorf("CBZ entry %q", r.File[0].Name)
+	}
+
+	options.Format = FormatImages
+	if down, err = c.DownloadChapterContext(context.Background(), chapter, options); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(down.Directory, down.Filename, "0001.webp")); err != nil {
+		t.Error(err)
+	}
+
+	options.Format = FormatEPUB
+	if down, err = c.DownloadChapterContext(context.Background(), chapter, options); err != nil {
+		t.Fatal(err)
+	}
+	e, err := zip.OpenReader(filepath.Join(down.Directory, down.Filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer e.Close()
+	opf, err := e.Open("OEBPS/content.opf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer opf.Close()
+	data, err := io.ReadAll(opf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(data, []byte(`href="images/0001.webp" media-type="image/webp"`)) {
+		t.Errorf("EPUB manifest:\n%s", data)
 	}
 }
 

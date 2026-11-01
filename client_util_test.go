@@ -187,3 +187,24 @@ func TestMangaImageURL(t *testing.T) {
 		t.Error("unknown image: no error")
 	}
 }
+
+func TestContentExtension(t *testing.T) {
+	webpBytes := []byte("RIFF\x00\x00\x00\x00WEBPVP8 ")
+	jpegBytes := []byte("\xff\xd8\xff\xe0")
+	for _, tt := range []struct {
+		image     []byte
+		ext, want string
+	}{
+		{webpBytes, ".jpg", ".webp"},
+		{webpBytes, ".WEBP", ".WEBP"},
+		{jpegBytes, ".jpeg", ".jpeg"},
+		{jpegBytes, ".jpg", ".jpg"},
+		{jpegBytes, ".png", ".jpg"},
+		{[]byte("\x89PNG\r\n\x1a\n"), ".jpg", ".png"},
+		{[]byte("not an image"), ".avif", ".avif"},
+	} {
+		if got := contentExtension(tt.image, tt.ext); got != tt.want {
+			t.Errorf("%q as %s: %s, want %s", tt.image, tt.ext, got, tt.want)
+		}
+	}
+}

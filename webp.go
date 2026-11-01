@@ -16,13 +16,6 @@ import (
 // DefaultImageQuality is the quality used when DownloadOptions.ImageQuality is 0.
 const DefaultImageQuality = 90
 
-// webpPage is a page converted to WebP.
-type webpPage struct {
-	mangadata.PageWithImage
-}
-
-func (webpPage) Extension() string { return ".webp" }
-
 // convertToWebP encodes the pages as lossy WebP, GOMAXPROCS at a time. A page keeps its
 // original bytes when it already is WebP (decoders return limited-range YCbCr, encoding that
 // again washes out the blacks), when it can't be decoded or encoded (logged: WebP stops at
@@ -42,7 +35,6 @@ func (c *Client) convertToWebP(ctx context.Context, pages []mangadata.PageWithIm
 			}
 			data := page.Image()
 			if http.DetectContentType(data) == "image/webp" {
-				pages[i] = webpPage{page}
 				return nil
 			}
 			img, format, err := image.Decode(bytes.NewReader(data))
@@ -60,7 +52,6 @@ func (c *Client) convertToWebP(ctx context.Context, pages []mangadata.PageWithIm
 				return nil
 			}
 			page.SetImage(buf.Bytes())
-			pages[i] = webpPage{page}
 			return nil
 		})
 	}

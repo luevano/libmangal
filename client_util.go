@@ -28,13 +28,44 @@ const maxMangaImageSize = 20 << 20
 // archive entry names, so anything else could escape the chapter.
 var pageExtension = regexp.MustCompile(`^\.[A-Za-z0-9]{1,8}$`)
 
-// pageName is the file (or archive entry) name of the i-th page (0-based).
+// pageName is the file (or archive entry) name of the i-th page (0-based), with the
+// extension of what its image really is once it has one: sites answer WebP under a .jpg url.
 func pageName(i int, page mangadata.Page) (string, error) {
 	ext := page.Extension()
 	if !pageExtension.MatchString(ext) {
 		return "", fmt.Errorf("page %d: invalid extension %q", i+1, ext)
 	}
+	if p, ok := page.(mangadata.PageWithImage); ok {
+		ext = contentExtension(p.Image(), ext)
+	}
 	return fmt.Sprintf("%04d%s", i+1, ext), nil
+}
+
+// contentExtension is the extension of the image's content, ext if that's what it already
+// says or the content isn't one of the formats http sniffs (AVIF, JXL).
+func contentExtension(image []byte, ext string) string {
+	var want string
+	switch http.DetectContentType(image) {
+	case "image/jpeg":
+		if strings.EqualFold(ext, ".jpeg") {
+			return ext
+		}
+		want = ".jpg"
+	case "image/png":
+		want = ".png"
+	case "image/gif":
+		want = ".gif"
+	case "image/webp":
+		want = ".webp"
+	case "image/bmp":
+		want = ".bmp"
+	default:
+		return ext
+	}
+	if strings.EqualFold(ext, want) {
+		return ext
+	}
+	return want
 }
 
 // checkPageNames fails if any page has an invalid extension.
