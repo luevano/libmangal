@@ -33,6 +33,19 @@ const (
 	FormatEPUB
 )
 
+//go:generate go tool enumer -type=ImageFormat -trimprefix=ImageFormat -json -yaml -text
+
+// ImageFormat is what the page images are saved as, whatever the chapter's Format.
+type ImageFormat uint8
+
+const (
+	// ImageFormatOriginal keeps the page images as the provider gave them.
+	ImageFormatOriginal ImageFormat = iota
+
+	// ImageFormatWebP converts the page images to lossy WebP.
+	ImageFormatWebP
+)
+
 // Extension returns extension of the format with the leading dot.
 func (f Format) Extension() string {
 	switch f {

@@ -52,7 +52,7 @@ func TestConvertToWebP(t *testing.T) {
 
 func TestDownloadWebP(t *testing.T) {
 	c, options := newDownloadTest(t)
-	options.WebP = true
+	options.ImageFormat = ImageFormatWebP
 	chapter := newFakeChapter(validMeta(), 2)
 	chapter.ext = ".png"
 	chapter.image = testPNG(t, 20, 20)
@@ -86,8 +86,13 @@ func TestDownloadWebP(t *testing.T) {
 		t.Error("EPUB has no WebP page")
 	}
 
-	options.WebPQuality = 101
+	options.ImageQuality = 101
 	if _, err := c.DownloadChapterContext(context.Background(), chapter, options); err == nil {
 		t.Error("quality 101: no error")
+	}
+	options.ImageQuality = 0
+	options.ImageFormat = ImageFormatWebP + 1
+	if _, err := c.DownloadChapterContext(context.Background(), chapter, options); err == nil {
+		t.Error("unknown image format: no error")
 	}
 }

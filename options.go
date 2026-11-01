@@ -116,13 +116,13 @@ type DownloadOptions struct {
 	// E.g. grayscale effect. Nil leaves the images as they are.
 	ImageTransformer func([]byte) ([]byte, error)
 
-	// WebP converts the page images to lossy WebP (after ImageTransformer), for every
-	// format but FormatPDF, where it's ignored (the PDF would hold them decoded again).
+	// ImageFormat the page images are saved as (after ImageTransformer), the zero value is
+	// ImageFormatOriginal. Ignored for FormatPDF (the PDF would hold them decoded again).
 	// Pages that already are WebP, or that can't be decoded, are kept as they are.
-	WebP bool
+	ImageFormat ImageFormat
 
-	// WebPQuality of the WebP conversion, 1 to 100, 0 is DefaultWebPQuality.
-	WebPQuality int
+	// ImageQuality of the ImageFormat conversion, 1 to 100, 0 is DefaultImageQuality.
+	ImageQuality int
 
 	// OnProgress, if not nil, is called as the chapter download goes: at each stage, and
 	// after each page image. Calls don't overlap.
@@ -161,8 +161,11 @@ func (o DownloadOptions) validate() error {
 	if !o.Format.IsAFormat() {
 		return fmt.Errorf("unknown format %d", o.Format)
 	}
-	if o.WebPQuality < 0 || o.WebPQuality > 100 {
-		return fmt.Errorf("WebP quality %d not between 0 and 100", o.WebPQuality)
+	if !o.ImageFormat.IsAImageFormat() {
+		return fmt.Errorf("unknown image format %d", o.ImageFormat)
+	}
+	if o.ImageQuality < 0 || o.ImageQuality > 100 {
+		return fmt.Errorf("image quality %d not between 0 and 100", o.ImageQuality)
 	}
 	return nil
 }
