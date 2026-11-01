@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gen2brain/webp"
+	"github.com/gen2brain/vpx/webp"
 	"github.com/luevano/libmangal/mangadata"
 )
 
@@ -73,7 +73,7 @@ func TestConvertToWebP(t *testing.T) {
 }
 
 func TestConvertToWebPKeepsOriginal(t *testing.T) {
-	// over libwebp's 16383 px limit
+	// over WebP's 16383 px limit
 	var tall bytes.Buffer
 	if err := png.Encode(&tall, image.NewGray(image.Rect(0, 0, 2, 16384))); err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func TestConvertToWebPKeepsOriginal(t *testing.T) {
 		t.Fatal(err)
 	}
 	var encoded bytes.Buffer
-	if err := webp.Encode(&encoded, decoded, webp.Options{Quality: 100, Method: webp.DefaultMethod}); err != nil {
+	if err := webp.Encode(&encoded, decoded, webp.EncodeOptions{Quality: 100}); err != nil {
 		t.Fatal(err)
 	}
 	if encoded.Len() < small.Len() {
@@ -120,7 +120,7 @@ func TestDownloadWebP(t *testing.T) {
 	options.ImageFormat = ImageFormatWebP
 	chapter := newFakeChapter(validMeta(), 2)
 	chapter.ext = ".png"
-	chapter.image = noisePNG(t, 20, 20)
+	chapter.image = noisePNG(t, 64, 64)
 	down, err := c.DownloadChapterContext(context.Background(), chapter, options)
 	if err != nil {
 		t.Fatal(err)
@@ -159,5 +159,36 @@ func TestDownloadWebP(t *testing.T) {
 	options.ImageFormat = ImageFormatWebP + 1
 	if _, err := c.DownloadChapterContext(context.Background(), chapter, options); err == nil {
 		t.Error("unknown image format: no error")
+	}
+}
+
+// blackWebP is a lossy WebP page, all black.
+func blackWebP(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 64, 64))
+	for i := 3; i < len(img.Pix); i += 4 {
+		img.Pix[i] = 255
+	}
+	var buf bytes.Buffer
+	if err := webp.Encode(&buf, img, webp.EncodeOptions{Quality: 90}); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+// TestDownloadWebPSource: a source answering WebP works for every format, under a wrong
+// extension too.
+func TestDownloadWebPSource(t *testing.T) {
+	for _, ext := range []string{".webp", ".jpg"} {
+		for _, format := range FormatValues() {
+			c, options := newDownloadTest(t)
+			options.Format = format
+			chapter := newFakeChapter(validMeta(), 2)
+			chapter.ext = ext
+			chapter.image = blackWebP(t)
+			if _, err := c.DownloadChapterContext(context.Background(), chapter, options); err != nil {
+				t.Errorf("%s %s: %v", format, ext, err)
+			}
+		}
 	}
 }

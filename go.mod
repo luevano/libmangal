@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/agnivade/levenshtein v1.2.1
-	github.com/gen2brain/webp v0.6.4
+	github.com/gen2brain/vpx v0.2.1
 	github.com/pdfcpu/pdfcpu v0.16.2
 	github.com/philippgille/gokv v0.7.0
 	github.com/philippgille/gokv/util v0.7.0
@@ -21,7 +21,6 @@ require (
 require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/dmarkham/enumer v1.7.2 // indirect
-	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/hhrutter/tiff v1.0.7 // indirect
 	github.com/mattn/go-runewidth v0.0.31 // indirect
 	github.com/pascaldekloe/name v1.0.0 // indirect

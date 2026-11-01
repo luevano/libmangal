@@ -114,8 +114,9 @@ type DownloadOptions struct {
 	// ImageTransformer is applied for each image for the chapter.
 	//
 	// E.g. grayscale effect. Nil leaves the images as they are. WebP pages come as they are:
-	// Go's decoders return them as limited-range YCbCr, so a transformer has to expand the
-	// range before encoding them again or the blacks wash out.
+	// Go's decoders return them as limited-range YCbCr, read as full range the blacks wash
+	// out when encoded again; gen2brain/vpx's webp.Decode with Options.ToRGBA converts them
+	// right.
 	ImageTransformer func([]byte) ([]byte, error)
 
 	// ImageFormat the page images are saved as (after ImageTransformer), the zero value is

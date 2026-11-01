@@ -7,13 +7,12 @@ import (
 	"net/http"
 	"runtime"
 
-	"github.com/gen2brain/webp"
+	"github.com/gen2brain/vpx/webp"
 	"github.com/luevano/libmangal/mangadata"
 	"golang.org/x/sync/errgroup"
 )
 
-// DefaultImageQuality is the quality used when DownloadOptions.ImageQuality is 0: on real
-// PNG pages q90 has SSIM .9960 at 67% of the size, q80 .9888 at 49%.
+// DefaultImageQuality is the quality used when DownloadOptions.ImageQuality is 0.
 const DefaultImageQuality = 90
 
 // webpPage is a page converted to WebP.
@@ -25,7 +24,7 @@ func (webpPage) Extension() string { return ".webp" }
 
 // convertToWebP encodes the pages as lossy WebP, GOMAXPROCS at a time. A page keeps its
 // original bytes when it already is WebP (decoders return limited-range YCbCr, encoding that
-// again washes out the blacks), when it can't be decoded or encoded (logged: libwebp stops at
+// again washes out the blacks), when it can't be decoded or encoded (logged: WebP stops at
 // 16383 px a side), or when the WebP wouldn't be smaller (usual for JPEGs).
 func (c *Client) convertToWebP(ctx context.Context, pages []mangadata.PageWithImage, quality int) error {
 	if quality == 0 {
@@ -51,7 +50,7 @@ func (c *Client) convertToWebP(ctx context.Context, pages []mangadata.PageWithIm
 				return nil
 			}
 			var buf bytes.Buffer
-			if err := webp.Encode(&buf, img, webp.Options{Quality: quality, Method: webp.DefaultMethod}); err != nil {
+			if err := webp.Encode(&buf, img, webp.EncodeOptions{Quality: quality, Method: 4, Threads: 1}); err != nil {
 				c.logger.Log("page #%03d: not converted to WebP: encode %s: %s", i+1, format, err)
 				return nil
 			}
