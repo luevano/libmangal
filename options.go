@@ -222,7 +222,8 @@ type ClientOptions struct {
 	ChapterIndex ChapterIndex
 
 	// MangaDirIndex is asked for the directory of a manga before scanning the MangaDirInfo
-	// files (DownloadOptions.ReuseMangaDir). Optional.
+	// files (DownloadOptions.ReuseMangaDir), and told the downloaded ones. Optional; one
+	// implementing MangaDirInfoIndex also adds to the MangaDirInfo a download writes.
 	MangaDirIndex MangaDirIndex
 
 	// ConcurrentPages is how many pages of a chapter are downloaded at the same time.

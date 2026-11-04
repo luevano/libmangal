@@ -48,6 +48,19 @@ func NewMangaDirInfo(provider ProviderInfo, manga mangadata.Manga) MangaDirInfo 
 	return info
 }
 
+// AddMetadataIDs adds the ids of the sources info has no id of (e.g. those its
+// directory's MangaDirInfo had before a download, see MangaDirInfoIndex).
+func (info *MangaDirInfo) AddMetadataIDs(ids ...metadata.ID) {
+	for _, id := range ids {
+		if id.Source == metadata.IDSourceProvider || id.Raw == "" {
+			continue
+		}
+		if !slices.ContainsFunc(info.MetadataIDs, func(o metadata.ID) bool { return o.Source == id.Source }) {
+			info.MetadataIDs = append(info.MetadataIDs, id)
+		}
+	}
+}
+
 // MangaDirIndex is an index of the downloaded mangas' directories kept by the application
 // (e.g. in a database), asked before scanning the MangaDirInfo files. See ClientOptions.MangaDirIndex.
 type MangaDirIndex interface {
@@ -74,6 +87,16 @@ type MangaDirIndexContext interface {
 	MangaDirIndex
 	FindMangaDirContext(ctx context.Context, parent string, provider ProviderInfo, info MangaDirInfo) (name string, found bool, err error)
 	RememberMangaDirContext(ctx context.Context, parent, name string, info MangaDirInfo) error
+}
+
+// MangaDirInfoIndex is a MangaDirIndex that knows more of a manga than its download
+// (e.g. metadata ids bound by hand): a download writes the MangaDirInfo it returns for the
+// directory parent/name, given the one it would write (NewMangaDirInfo, plus the ids of
+// other sources the directory's MangaDirInfo had). The client calls it when the
+// ClientOptions.MangaDirIndex implements it.
+type MangaDirInfoIndex interface {
+	MangaDirIndex
+	MangaDirInfoContext(ctx context.Context, parent, name string, info MangaDirInfo) (MangaDirInfo, error)
 }
 
 // ChapterIndexContext is a ChapterIndex whose lookup takes a context, called instead of
@@ -233,6 +256,8 @@ type chapterDirs struct {
 	parent, manga string
 	// meta is where series.json, the cover and the banner go.
 	meta string
+	// info is the MangaDirInfo written in the manga directory (downloads only).
+	info MangaDirInfo
 }
 
 // ChapterDir returns the directory the chapter is (or would be) downloaded to with the options,
@@ -343,6 +368,25 @@ func (c *Client) findMangaDir(ctx context.Context, parent string, info MangaDirI
 		return name, ok, fmt.Errorf("index: %w", err)
 	}
 	return name, ok, nil
+}
+
+// mangaDirInfo is the MangaDirInfo a download of the manga writes in dir: NewMangaDirInfo,
+// keeping the ids of other sources dir's had, then what the index adds (MangaDirInfoIndex).
+func (c *Client) mangaDirInfo(ctx context.Context, dir string, manga mangadata.Manga) (MangaDirInfo, error) {
+	info := NewMangaDirInfo(c.Info(), manga)
+	// a broken one is replaced, as before
+	if have, err := ReadMangaDirInfo(c.options.FS, dir); err == nil {
+		info.AddMetadataIDs(have.MetadataIDs...)
+	}
+	index, ok := c.options.MangaDirIndex.(MangaDirInfoIndex)
+	if !ok {
+		return info, nil
+	}
+	info, err := index.MangaDirInfoContext(ctx, filepath.Dir(dir), filepath.Base(dir), info)
+	if err != nil {
+		return info, fmt.Errorf("index: %w", err)
+	}
+	return info, nil
 }
 
 // rememberMangaDir records a downloaded manga directory in the index and the scan cache.

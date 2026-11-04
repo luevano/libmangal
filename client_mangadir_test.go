@@ -4,9 +4,11 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/luevano/libmangal/mangadata"
+	"github.com/luevano/libmangal/metadata"
 	"github.com/spf13/afero"
 )
 
@@ -314,5 +316,64 @@ func TestIndexContext(t *testing.T) {
 		if v != "v" {
 			t.Errorf("got context value %v, want the caller's", v)
 		}
+	}
+}
+
+// idsIndex adds an id the application knows to what a download writes.
+type idsIndex struct {
+	memIndex
+	add metadata.ID
+}
+
+func (i *idsIndex) MangaDirInfoContext(_ context.Context, _, _ string, info MangaDirInfo) (MangaDirInfo, error) {
+	info.AddMetadataIDs(i.add)
+	return info, nil
+}
+
+func TestDownloadKeepsMetadataIDs(t *testing.T) {
+	options := DefaultDownloadOptions()
+	options.Directory = t.TempDir()
+	options.SearchMetadata = false
+	dir := filepath.Join(options.Directory, "Manga")
+	kitsu := metadata.ID{Raw: "5", Source: metadata.IDSourceKitsu, Code: metadata.IDCodeKitsu}
+	staleAnilist := metadata.ID{Raw: "1", Source: metadata.IDSourceAnilist, Code: metadata.IDCodeAnilist}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := MangaDirInfo{Provider: "fake", MetadataIDs: []metadata.ID{staleAnilist, kitsu}}
+	if err := WriteMangaDirInfo(afero.NewOsFs(), dir, old, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	mu := metadata.ID{Raw: "9", Source: metadata.IDSourceMangaUpdates, Code: metadata.IDCodeMangaUpdates}
+	index := &idsIndex{memIndex: memIndex{dirs: map[string]MangaDirInfo{}}, add: mu}
+	c := newNamedClient(t, ProviderInfo{ID: "fake", Name: "Fake", Version: "0.1.0"}, "Manga")
+	c.options.MangaDirIndex = index
+	if _, err := c.DownloadChapterContext(context.Background(), newFakeChapter(newAniMeta(7, "Fake Manga"), 1), options); err != nil {
+		t.Fatal(err)
+	}
+	info, err := ReadMangaDirInfo(afero.NewOsFs(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// the download's AniList id wins, the other sources' ids stay, the index's are added
+	want := []metadata.ID{{Raw: "7", Source: metadata.IDSourceAnilist, Code: metadata.IDCodeAnilist}, kitsu, mu}
+	if !reflect.DeepEqual(info.MetadataIDs, want) {
+		t.Errorf("got %+v, want %+v", info.MetadataIDs, want)
+	}
+	if got := index.dirs[dir].MetadataIDs; !reflect.DeepEqual(got, want) {
+		t.Errorf("remembered %+v, want %+v", got, want)
+	}
+}
+
+func TestReadMangaDirInfoUnknownFields(t *testing.T) {
+	dir := t.TempDir()
+	data := `{"provider":"fake","manga":{"id":"m"},"metadata_ids":[{"raw":"7","source":2,"code":"al"}],"from_a_newer_version":true}`
+	if err := os.WriteFile(filepath.Join(dir, FilenameMangaDirInfo), []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	info, err := ReadMangaDirInfo(afero.NewOsFs(), dir)
+	if err != nil || info.Manga.ID != "m" || len(info.MetadataIDs) != 1 {
+		t.Errorf("got %+v, %v", info, err)
 	}
 }

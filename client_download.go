@@ -72,6 +72,11 @@ func (c *Client) DownloadChapterContext(
 	if err != nil {
 		return nil, err
 	}
+	if dirs.manga != "" {
+		if dirs.info, err = c.mangaDirInfo(ctx, dirs.manga, manga); err != nil {
+			return nil, fmt.Errorf("%s of manga %q: %w", FilenameMangaDirInfo, manga, err)
+		}
+	}
 	downChap, err := tmpClient.downloadChapterWithMetadata(ctx, chapter, options, dirs, func(path string) (bool, error) {
 		return afero.Exists(c.options.FS, path)
 	})
@@ -94,7 +99,7 @@ func (c *Client) DownloadChapterContext(
 		return nil, fmt.Errorf("move to %s: %w", options.Directory, err)
 	}
 	if dirs.manga != "" {
-		if err := c.rememberMangaDir(ctx, dirs.parent, filepath.Base(dirs.manga), NewMangaDirInfo(c.Info(), manga)); err != nil {
+		if err := c.rememberMangaDir(ctx, dirs.parent, filepath.Base(dirs.manga), dirs.info); err != nil {
 			return nil, fmt.Errorf("remember the directory of manga %q: %w", manga, err)
 		}
 	}
@@ -122,7 +127,7 @@ func (c *Client) downloadChapterWithMetadata(
 
 	manga := chapter.Volume().Manga()
 	if dirs.manga != "" {
-		if err := WriteMangaDirInfo(c.options.FS, dirs.manga, NewMangaDirInfo(c.Info(), manga), c.options.ModeFile); err != nil {
+		if err := WriteMangaDirInfo(c.options.FS, dirs.manga, dirs.info, c.options.ModeFile); err != nil {
 			return nil, err
 		}
 	}
